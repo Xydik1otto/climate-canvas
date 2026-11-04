@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>climate-canvas</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>🏠 Climate Canvas</h1>
+  <nav>
+    <button data-view="rooms" class="active">Кімнати</button>
+    <button data-view="timeline">Таймлайн</button>
+    <button data-view="heatmap">Теплова мапа</button>
+    <button data-view="seasons">Сезони</button>
+  </nav>
+  <span id="mode-badge"></span>
+</header>
+
+<main>
+  <section id="view-rooms" class="view active">
+    <div id="room-grid" class="grid"></div>
+  </section>
+
+  <section id="view-timeline" class="view">
+    <div class="controls">
+      <select id="tl-room"></select>
+      <select id="tl-metric">
+        <option value="temperature">Температура</option>
+        <option value="humidity">Вологість</option>
+      </select>
+      <select id="tl-days">
+        <option value="7">7 днів</option>
+        <option value="30">30 днів</option>
+        <option value="90">90 днів</option>
+      </select>
+    </div>
+    <canvas id="timeline-chart" height="110"></canvas>
+  </section>
+
+  <section id="view-heatmap" class="view">
+    <div class="controls">
+      <select id="hm-room"></select>
+      <select id="hm-days">
+        <option value="30">30 днів</option>
+        <option value="90" selected>90 днів</option>
+      </select>
+    </div>
+    <div id="heatmap"></div>
+    <div id="hm-legend"></div>
+  </section>
+
+  <section id="view-seasons" class="view">
+    <div class="controls">
+      <select id="se-room"></select>
+      <select id="se-month"></select>
+    </div>
+    <canvas id="seasons-chart" height="110"></canvas>
+  </section>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

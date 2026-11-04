@@ -1,0 +1,32 @@
+[
+  {
+    "entity_id": "sensor.living_room_temp",
+    "state": "22.4",
+    "attributes": {"unit_of_measurement": "°C", "friendly_name": "Living Room Temperature"}
+  },
+  {
+    "entity_id": "sensor.living_room_hum",
+    "state": "47.2",
+    "attributes": {"unit_of_measurement": "%", "friendly_name": "Living Room Humidity"}
+  },
+  {
+    "entity_id": "sensor.bedroom_temp",
+    "state": "19.8",
+    "attributes": {"unit_of_measurement": "°C", "friendly_name": "Bedroom Temperature"}
+  },
+  {
+    "entity_id": "sensor.bedroom_temp_broken",
+    "state": "unavailable",
+    "attributes": {"unit_of_measurement": "°C", "friendly_name": "Broken Sensor"}
+  },
+  {
+    "entity_id": "sensor.kitchen_power",
+    "state": "150.0",
+    "attributes": {"unit_of_measurement": "W", "friendly_name": "Kitchen Power"}
+  },
+  {
+    "entity_id": "binary_sensor.door",
+    "state": "off",
+    "attributes": {"friendly_name": "Front Door"}
+  }
+]

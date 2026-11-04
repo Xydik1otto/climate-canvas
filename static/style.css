@@ -1,0 +1,21 @@
+:root { --bg:#0f1419; --card:#1a2129; --fg:#e6e1cf; --accent:#4ecdc4; --muted:#7a8a99; }
+* { box-sizing:border-box; }
+body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+header { display:flex; align-items:center; gap:16px; padding:10px 20px; border-bottom:1px solid #2a3642; }
+header h1 { font-size:1.1rem; margin:0; }
+nav button { background:var(--card); color:var(--fg); border:1px solid #2a3642; border-radius:6px; padding:6px 12px; margin-right:4px; cursor:pointer; }
+nav button.active { background:var(--accent); color:#0f1419; border-color:var(--accent); }
+#mode-badge { margin-left:auto; font-size:.8rem; color:var(--muted); }
+main { padding:16px 20px; }
+.view { display:none; }
+.view.active { display:block; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
+.room-card { background:var(--card); border:1px solid #2a3642; border-radius:10px; padding:14px; }
+.room-card h3 { margin:0 0 8px; font-size:1rem; }
+.room-card .temp { font-size:1.8rem; font-weight:600; }
+.room-card .hum { color:var(--muted); }
+.comfort-ok { color:#7bd88f; } .comfort-cold { color:#61afef; } .comfort-hot { color:#e06c75; }
+.controls { display:flex; gap:8px; margin-bottom:10px; }
+.controls select { background:var(--card); color:var(--fg); border:1px solid #2a3642; border-radius:6px; padding:5px 8px; }
+#heatmap { overflow-x:auto; }
+#hm-legend { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:.8rem; color:var(--muted); }

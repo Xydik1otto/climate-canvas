@@ -1,0 +1,6 @@
+{
+  "Living Room": {"temp_entity": "sensor.living_room_temp", "humidity_entity": "sensor.living_room_hum"},
+  "Bedroom": {"temp_entity": "sensor.bedroom_temp", "humidity_entity": "sensor.bedroom_hum"},
+  "Kitchen": {"temp_entity": "sensor.kitchen_temp", "humidity_entity": "sensor.kitchen_hum"},
+  "Office": {"temp_entity": "sensor.office_temp", "humidity_entity": "sensor.office_hum"}
+}
