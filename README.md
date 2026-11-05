@@ -3,7 +3,9 @@
 ![tests](https://github.com/bigpi/climate-canvas/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
-![version](https://img.shields.io/badge/version-0.4.0-blue)
+![version](https://img.shields.io/badge/version-1.0.0-blue)
+
+**[🇬🇧 English version](README.en.md)**
 
 **Home Climate & Energy Canvas** — довгострокова візуалізація клімату та енергії з Home Assistant.
 
@@ -131,11 +133,14 @@ Home Assistant чудово збирає дані, але погано їх по
 ## Джерела даних
 
 - **Home Assistant REST API**: `/api/states` та `/api/history/period`.
-  Токен — у змінній середовища `HASS_TOKEN`; базовий URL — `HASS_URL`
-  (за замовчуванням `http://supervisor/core/api`, альтернатива
-  `http://homeassistant.local:8123`).
+  Найпростіший спосіб підключення — **майстер налаштувань** на сторінці
+  `/settings` (URL + токен, кнопка «Перевірити з'єднання», зберігається у
+  `data/settings.json`). Змінні середовища теж працюють: токен — `HASS_TOKEN`,
+  базовий URL — `HASS_URL` (за замовчуванням `http://supervisor/core/api`,
+  альтернатива `http://homeassistant.local:8123`); wizard має приоритет над env.
 - **Demo mode** — детерміновані синтетичні дані, щоб усе працювало без HA.
-  Увімкається через `DEMO=1` або автоматично, якщо `HASS_TOKEN` не задано.
+  Увімкається через `DEMO=1` або автоматично, якщо токен не налаштовано;
+  на першому запускі демо-історію завантажують кнопкою «📦 Завантажити демо».
 
 ### Налаштування HASS_TOKEN
 
@@ -196,6 +201,7 @@ SQLite (`data/cache.db`) зберігає довгу історію; бекен�
 | Lifespan, CSV export, авто-виявлення сенсорів, вологість-мапа (v0.1.0-alpha) | ✅ |
 | Енергія kWh + вартість, мітки на таймлайні, CO₂/VOC, тема (v0.3.0) | ✅ |
 | Точка роси + ризик цвілі, зовнішня температура (Open-Meteo), прогноз 48 год, тижневий звіт, PWA manifest (v0.4.0) | ✅ |
+| HA setup wizard у UI, per-room зони вологості, PDF-звіт + email, UA/EN i18n, перший запуск з демо-кнопкою, INSTALL.md, packaging, full export, a11y (**v1.0.0**) | ✅ |
 | «тиждень vs минулий тиждень», push-нотифікації про ризик цвілі | ⏳ |
 
 ## Smoke-тест
@@ -203,6 +209,15 @@ SQLite (`data/cache.db`) зберігає довгу історію; бекен�
 ```bash
 bash scripts/smoke.sh   # піднімає демо-сервер на випадковому порті, перевіряє ендпоінти, PASS/FAIL
 ```
+
+## Contributing
+
+PR та issue — вітаються! Прочитайте [CONTRIBUTING.md](CONTRIBUTING.md);
+баги репортуйте через шаблон у `.github/ISSUE_TEMPLATE/`. Питання безпеки —
+дивіться [SECURITY.md](SECURITY.md) (не публікуйте токени в issues).
+
+**Рекомендовані GitHub topics:** `home-assistant`, `smart-home`, `visualization`,
+`fastapi`, `open-meteo` (вже прописані у `pyproject.toml` → `keywords`).
 
 ## Ліцензія
 
