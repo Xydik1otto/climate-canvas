@@ -5,7 +5,10 @@ from app import config
 def test_health(client):
     r = client.get("/api/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "demo": True}
+    data = r.json()
+    assert data["status"] == "ok"
+    assert data["demo"] is True
+    assert data["has_data"] is True  # conftest seeds demo history
 
 
 def test_rooms_returns_all_rooms_with_comfort(client):

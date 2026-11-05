@@ -35,6 +35,29 @@ function moldRiskClass(risk) {
   return `<div class="mold-risk mold-${risk}" title="${t("mold_title")}">${t("mold_line", { level: label })}</div>`;
 }
 
+// ---------- First run: opt-in demo data ----------
+async function checkFirstRun() {
+  const banner = $("#first-run");
+  if (!banner) return;
+  try {
+    const h = await api("/api/health");
+    if (h.demo && !h.has_data && !localStorage.getItem("cc-demo-dismissed")) {
+      banner.hidden = false;
+    }
+  } catch { /* health unavailable — skip banner */ }
+}
+
+async function seedDemo() {
+  await fetch("/api/demo/seed", { method: "POST" });
+  $("#first-run").hidden = true;
+  loadRooms();
+}
+$("#demo-seed-btn")?.addEventListener("click", seedDemo);
+$("#demo-dismiss-btn")?.addEventListener("click", () => {
+  localStorage.setItem("cc-demo-dismissed", "1");
+  $("#first-run").hidden = true;
+});
+
 // ---------- Rooms ----------
 async function loadRooms() {
   const data = await api("/api/rooms");
@@ -333,3 +356,4 @@ $("#theme-toggle").addEventListener("click", () => {
 applyTheme(localStorage.getItem("cc-theme") || "dark");
 
 loadRooms();
+checkFirstRun();

@@ -23,9 +23,7 @@ def get_cache() -> cache_mod.Cache:
     global _cache
     if _cache is None:
         _cache = cache_mod.Cache(config.DB_PATH)
-        if config.DEMO:
-            demo_data.seed_cache(_cache)
-        else:
+        if not config.DEMO:
             sync.pull_once(_cache, config.load_rooms())
     return _cache
 
@@ -44,7 +42,19 @@ app = FastAPI(title="climate-canvas", version="0.4.0", lifespan=lifespan)
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "demo": config.DEMO}
+    cache = get_cache()
+    return {"status": "ok", "demo": config.DEMO, "has_data": cache.count() > 0}
+
+
+@app.post("/api/demo/seed")
+def demo_seed() -> dict:
+    """First-run opt-in: fill the cache with deterministic demo history."""
+    if not config.DEMO:
+        raise HTTPException(409, "Home Assistant is configured — demo data would mix with real readings")
+    cache = get_cache()
+    before = cache.count()
+    demo_data.seed_cache(cache, config.load_rooms())
+    return {"status": "ok", "points": cache.count() - before}
 
 
 # ---------- Setup wizard (Home Assistant URL + token, saved in settings.json) ----------

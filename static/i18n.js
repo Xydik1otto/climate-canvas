@@ -12,6 +12,8 @@ window.I18N = {
       nav_seasons: "Сезони", nav_energy: "Енергія",
       report_link_title: "Тижневий звіт", settings_link_title: "Налаштування сенсорів",
       theme_title: "Світла/темна тема", lang_title: "Мова інтерфейсу",
+      demo_banner: "Схоже, це перший запуск — історії ще немає. Завантажити демо-дані, щоб побачити всі вьюхи?",
+      demo_btn: "📦 Завантажити демо", demo_later: "Ні, дякую",
       // timeline / heatmap / seasons controls
       metric_temperature: "Температура", metric_humidity: "Вологість",
       metric_co2: "CO₂", metric_voc: "VOC",
@@ -84,6 +86,8 @@ window.I18N = {
       nav_seasons: "Seasons", nav_energy: "Energy",
       report_link_title: "Weekly report", settings_link_title: "Sensor settings",
       theme_title: "Light/dark theme", lang_title: "Interface language",
+      demo_banner: "Looks like the first run — no history yet. Load demo data to explore every view?",
+      demo_btn: "📦 Load demo", demo_later: "No thanks",
       metric_temperature: "Temperature", metric_humidity: "Humidity",
       metric_co2: "CO₂", metric_voc: "VOC",
       metric_dew_point: "Dew point", metric_mold_risk: "Mold risk",
