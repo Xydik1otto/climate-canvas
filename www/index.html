@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Climate Canvas</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <main class="splash">
+    <h1>🌿 Climate Canvas</h1>
+    <p class="tagline" data-i18n="tagline">Моніторинг клімату дому — ваш власний сервер</p>
+
+    <label for="server-url" data-i18n="url_label">Адреса вашого climate-canvas сервера</label>
+    <input id="server-url" type="url" inputmode="url" autocapitalize="off" autocorrect="off"
+           spellcheck="false" placeholder="https://climate.example.ts.net">
+    <p class="hint" data-i18n="hint">Наприклад: http://192.168.1.10:8000 або адреса Tailscale. Сервер має бути запущений заздалегідь.</p>
+
+    <button id="connect-btn" class="primary" data-i18n="connect">Підключитися</button>
+    <button id="demo-btn" class="secondary" data-i18n="demo">📦 Демо-режим</button>
+    <p class="hint" data-i18n="demo_hint">Демо-режим відкриє застосунок на вашому сервері з детермінованими демо-даними (потрібен запущений сервер — він запропонує завантажити демо сам).</p>
+    <p id="error" class="error" hidden></p>
+  </main>
+  <script src="index.js"></script>
+</body>
+</html>

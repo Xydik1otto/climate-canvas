@@ -1,0 +1,11 @@
+{
+  "appId": "io.github.xydik1otto.climate_canvas",
+  "appName": "Climate Canvas",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  },
+  "ios": {
+    "contentInset": "always"
+  }
+}

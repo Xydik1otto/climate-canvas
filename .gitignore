@@ -17,3 +17,6 @@ rooms.json
 build/
 dist/
 
+
+# Capacitor / mobile
+node_modules/

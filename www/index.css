@@ -1,0 +1,27 @@
+/* Climate Canvas splash: server address + demo mode */
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100dvh; display: grid; place-items: center;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #f4f6f8; color: #1c2430; padding: 1.5rem;
+}
+@media (prefers-color-scheme: dark) {
+  body { background: #14181d; color: #e8ecf1; }
+}
+.splash { width: min(26rem, 100%); display: grid; gap: 0.75rem; }
+h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
+.tagline { margin: 0 0 1rem; opacity: 0.75; }
+label { font-size: 0.9rem; font-weight: 600; }
+input {
+  width: 100%; padding: 0.75rem; font-size: 1rem; border-radius: 10px;
+  border: 1px solid #9aa7b4; background: #fff; color: inherit;
+}
+@media (prefers-color-scheme: dark) { input { background: #1d232a; border-color: #3a4552; } }
+button {
+  padding: 0.85rem; font-size: 1rem; border-radius: 10px; border: none; cursor: pointer;
+}
+.primary { background: #2f7d4f; color: #fff; }
+.secondary { background: transparent; color: inherit; border: 1px solid #9aa7b4; }
+.hint { font-size: 0.8rem; opacity: 0.7; margin: 0; }
+.error { color: #c0392b; font-size: 0.85rem; }

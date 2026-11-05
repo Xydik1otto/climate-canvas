@@ -44,6 +44,12 @@ async function checkFirstRun() {
     if (h.demo && !h.has_data && !localStorage.getItem("cc-demo-dismissed")) {
       banner.hidden = false;
     }
+    // Mobile shell splash: the demo-mode button lands here with #demo —
+    // seed the deterministic demo history right away.
+    if (location.hash === "#demo" && h.demo && !h.has_data) {
+      history.replaceState(null, "", location.pathname + location.search);
+      await seedDemo();
+    }
   } catch { /* health unavailable — skip banner */ }
 }
 
