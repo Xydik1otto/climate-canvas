@@ -16,6 +16,14 @@ function comfortClass(t, [min, max]) {
   return "comfort-ok";
 }
 
+// Humidity zone badge on room cards (30–50 % by default, per-room in settings).
+function humidityClass(h, [lo, hi]) {
+  if (h == null) return "";
+  if (h < lo) return "comfort-cold";
+  if (h > hi) return "comfort-hot";
+  return "comfort-ok";
+}
+
 // Mold-risk badge on room cards ("low" | "medium" | "high" from the API).
 function moldRiskClass(risk) {
   if (!risk) return "";
@@ -37,9 +45,10 @@ async function loadRooms() {
     const voc = st.voc != null ? `<div class="hum">🧪 ${st.voc} ppb VOC</div>` : "";
     const dew = st.dew_point != null ? `<div class="hum">🌡 Точка роси: ${st.dew_point}°C</div>` : "";
     const risk = moldRiskClass(st.mold_risk);
+    const humCls = humidityClass(st.humidity, st.humidity_comfort || [30, 50]);
     card.innerHTML = `<h3>${room}</h3>
       <div class="temp ${cls}">${st.temperature ?? "—"}°C</div>
-      <div class="hum">💧 ${st.humidity ?? "—"}% · комфорт ${st.comfort[0]}–${st.comfort[1]}°C</div>${dew}${risk}${co2}${voc}`;
+      <div class="hum"><span class="${humCls}">💧 ${st.humidity ?? "—"}%</span> · комфорт ${st.humidity_comfort[0]}–${st.humidity_comfort[1]}% · T ${st.comfort[0]}–${st.comfort[1]}°C</div>${dew}${risk}${co2}${voc}`;
     grid.appendChild(card);
   }
   const names = Object.keys(data.rooms);

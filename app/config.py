@@ -86,6 +86,11 @@ def reload() -> None:
 COMFORT_MIN = 20.0
 COMFORT_MAX = 24.0
 
+# Default per-room humidity comfort zone (30–50 % — mold-safe indoor range).
+# Overridable per room via humidity_min/humidity_max in rooms.json.
+HUMIDITY_MIN = 30.0
+HUMIDITY_MAX = 50.0
+
 # Electricity price per kWh for the energy view cost estimate (currency-agnostic).
 ENERGY_PRICE = float(os.environ.get("ENERGY_PRICE", "7.5"))
 

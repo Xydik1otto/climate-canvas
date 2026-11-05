@@ -48,9 +48,10 @@
   </table>
 
   <h2>Запропоноване відображення кімнат</h2>
-  <p>Перевірте/відредагуйте відповідність сенсорів і збережіть у <code>rooms.json</code>.</p>
+  <p>Перевірте/відредагуйте відповідність сенсорів і зони вологості (за замовчуванням
+    30–50&nbsp;% — безпечний від цвілі діапазон), потім збережіть у <code>rooms.json</code>.</p>
   <table id="mapping-table">
-    <thead><tr><th>Кімната</th><th>temp_entity</th><th>humidity_entity</th></tr></thead>
+    <thead><tr><th>Кімната</th><th>temp_entity</th><th>humidity_entity</th><th>Вологість мін %</th><th>Вологість макс %</th></tr></thead>
     <tbody></tbody>
   </table>
   <button id="save-btn">💾 Зберегти rooms.json</button>
@@ -134,8 +135,10 @@ function renderMapping() {
       <td><input data-room="${room}" data-field="name" value="${room}"></td>
       <td><input data-room="${room}" data-field="temp_entity" value="${cfg.temp_entity ?? ""}"></td>
       <td><input data-room="${room}" data-field="humidity_entity" value="${cfg.humidity_entity ?? ""}"></td>
+      <td><input data-room="${room}" data-field="humidity_min" type="number" step="1" min="0" max="100" value="${cfg.humidity_min ?? 30}"></td>
+      <td><input data-room="${room}" data-field="humidity_max" type="number" step="1" min="0" max="100" value="${cfg.humidity_max ?? 50}"></td>
     </tr>`
-  ).join("") || "<tr><td colspan='3'>Немає пропозицій</td></tr>";
+  ).join("") || "<tr><td colspan='5'>Немає пропозицій</td></tr>";
 }
 
 $("#mapping-table").addEventListener("change", (e) => {
@@ -145,6 +148,10 @@ $("#mapping-table").addEventListener("change", (e) => {
     suggested[el.value] = suggested[old];
     delete suggested[old];
     el.dataset.room = el.value;
+  } else if (el.dataset.field === "humidity_min" || el.dataset.field === "humidity_max") {
+    const n = parseFloat(el.value);
+    if (!Number.isNaN(n)) suggested[el.dataset.room][el.dataset.field] = n;
+    else delete suggested[el.dataset.room][el.dataset.field];
   } else {
     suggested[el.dataset.room][el.dataset.field] = el.value;
   }

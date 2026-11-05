@@ -130,7 +130,15 @@ def rooms() -> dict:
     rooms_cfg = config.load_rooms()
     out = {}
     def enrich(room: str, t, h, extra: dict) -> dict:
-        out = {**extra, "comfort": [config.COMFORT_MIN, config.COMFORT_MAX]}
+        cfg = rooms_cfg.get(room, {})
+        out = {
+            **extra,
+            "comfort": [config.COMFORT_MIN, config.COMFORT_MAX],
+            "humidity_comfort": [
+                float(cfg.get("humidity_min", config.HUMIDITY_MIN)),
+                float(cfg.get("humidity_max", config.HUMIDITY_MAX)),
+            ],
+        }
         if t is not None and h is not None:
             out["dew_point"] = climate.dew_point(t, h)
             out["mold_risk"] = climate.mold_risk(t, h)
@@ -407,6 +415,12 @@ def save_rooms_config(payload: dict) -> dict:
             raise HTTPException(422, f"room {room!r} must be an object")
         if not isinstance(cfg.get("temp_entity"), str) or not isinstance(cfg.get("humidity_entity"), str):
             raise HTTPException(422, f"room {room!r} needs string temp_entity and humidity_entity")
+        for key in ("humidity_min", "humidity_max"):
+            if key in cfg and not isinstance(cfg[key], (int, float)):
+                raise HTTPException(422, f"room {room!r}: {key} must be a number")
+        if isinstance(cfg.get("humidity_min"), (int, float)) and isinstance(cfg.get("humidity_max"), (int, float)) \
+                and cfg["humidity_min"] >= cfg["humidity_max"]:
+            raise HTTPException(422, f"room {room!r}: humidity_min must be below humidity_max")
     path = config.save_rooms(rooms)
     return {"status": "ok", "rooms": rooms, "path": str(path)}
 
