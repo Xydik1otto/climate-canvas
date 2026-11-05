@@ -65,12 +65,23 @@ function nightBands(points) {
 
 async function loadTimeline() {
   const room = $("#tl-room").value, metric = $("#tl-metric").value, days = $("#tl-days").value;
-  const [data, ann] = await Promise.all([
+  const [data, ann, outdoor] = await Promise.all([
     api(`/api/timeline?room=${encodeURIComponent(room)}&metric=${metric}&days=${days}`),
     api(`/api/annotations?room=${encodeURIComponent(room)}&days=${days}`),
+    metric === "temperature" ? api(`/api/outdoor?days=${days}`) : Promise.resolve(null),
   ]);
   const points = data.points;
   const annotations = ann.annotations || [];
+  // Outdoor (Open-Meteo) overlay, aligned to the history labels by index.
+  let outdoorValues = [];
+  if (outdoor && outdoor.points.length) {
+    const op = outdoor.points;
+    if (op.length >= points.length) {
+      outdoorValues = op.slice(op.length - points.length).map(([, v]) => v);
+    } else {
+      outdoorValues = Array(points.length - op.length).fill(null).concat(op.map(([, v]) => v));
+    }
+  }
   $("#tl-annotations").innerHTML = annotations.length
     ? "Мітки: " + annotations.map((a) =>
         `<span class="ann"><b>${a.label}</b> <small>${a.ts.slice(0, 16).replace("T", " ")}</small>` +
@@ -88,7 +99,10 @@ async function loadTimeline() {
     type: "line",
     data: {
       labels,
-      datasets: [{ label: `${room} · ${metric}`, data: points.map(([, v]) => v), pointRadius: 0, borderWidth: 1.5, borderColor: "#4ecdc4", tension: 0.2 }],
+      datasets: [
+        { label: `${room} · ${metric}`, data: points.map(([, v]) => v), pointRadius: 0, borderWidth: 1.5, borderColor: "#4ecdc4", tension: 0.2 },
+        ...(outdoorValues.length ? [{ label: "Зовні (Open-Meteo)", data: outdoorValues, pointRadius: 0, borderWidth: 1.5, borderColor: "#e5c07b", borderDash: [6, 4], tension: 0.2 }] : []),
+      ],
     },
     options: {
       scales: { y: { grid: { color: themeColors().grid } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } },

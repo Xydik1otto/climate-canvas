@@ -78,6 +78,18 @@ def generate_hours(room: str, hours: int = HOURLY_DAYS * 24, end: datetime | Non
     return out
 
 
+def outdoor_hour(ts: datetime) -> float:
+    """Deterministic synthetic OUTDOOR temperature for one hour (demo mode).
+
+    Wider swings than indoors: stronger seasonality and day/night amplitude.
+    """
+    doy = ts.timetuple().tm_yday
+    season = 9.0 * math.sin(2 * math.pi * (doy - 105) / 365.0)
+    diurnal = 4.0 * math.sin(2 * math.pi * (ts.hour - 9) / 24.0)
+    noise = random.Random(f"outdoor|{ts.date().isoformat()}|{ts.hour // 6}").uniform(-1.5, 1.5)
+    return round(11.0 + season + diurnal + noise, 2)
+
+
 def current_state(room: str, now: datetime | None = None) -> dict[str, float]:
     now = now or datetime.now(timezone.utc)
     h0 = now.replace(minute=0, second=0, microsecond=0)

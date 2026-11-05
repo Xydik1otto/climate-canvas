@@ -20,6 +20,10 @@ COMFORT_MAX = 24.0
 # Electricity price per kWh for the energy view cost estimate (currency-agnostic).
 ENERGY_PRICE = float(os.environ.get("ENERGY_PRICE", "7.5"))
 
+# Open-Meteo (free, no API key) location for outdoor temperature comparison / forecast.
+LATITUDE = float(os.environ.get("LATITUDE", "50.4501"))
+LONGITUDE = float(os.environ.get("LONGITUDE", "30.5234"))
+
 DEFAULT_ROOMS = {
     "Living Room": {"temp_entity": "sensor.living_room_temp", "humidity_entity": "sensor.living_room_hum", "energy_entity": "sensor.living_room_energy", "co2_entity": "sensor.living_room_co2", "voc_entity": "sensor.living_room_voc"},
     "Bedroom": {"temp_entity": "sensor.bedroom_temp", "humidity_entity": "sensor.bedroom_hum", "energy_entity": "sensor.bedroom_energy", "co2_entity": "sensor.bedroom_co2", "voc_entity": "sensor.bedroom_voc"},

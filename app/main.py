@@ -5,7 +5,7 @@ import csv
 import io
 import threading
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import cache as cache_mod
-from . import climate, config, demo_data, discover, ha_client, sync
+from . import climate, config, demo_data, discover, ha_client, openmeteo, sync
 
 _cache: cache_mod.Cache | None = None
 _pull_thread: threading.Thread | None = None
@@ -164,6 +164,44 @@ def seasons(
     since = "1970-01-01T00:00:00+00:00"
     points = [(ts, v) for ts, v in cache.since(room, metric, since) if int(ts[5:7]) == month]
     return {"room": room, "metric": metric, "month": month, "by_year": cache_mod.seasonal_means(points)}
+
+
+@app.get("/api/outdoor")
+def outdoor(days: int = Query(7, ge=1, le=365)) -> dict:
+    """Outdoor temperature series (Open-Meteo, free/no key) for timeline overlay."""
+    if config.DEMO:
+        end = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        start = end - timedelta(days=days)
+        points, source = [], "demo"
+        ts = start
+        while ts <= end:
+            points.append([ts.strftime("%Y-%m-%dT%H:00:00+00:00"), demo_data.outdoor_hour(ts)])
+            ts += timedelta(hours=1)
+    else:
+        points, source = _outdoor_cached(days)
+    return {
+        "days": days,
+        "points": points,
+        "source": source,
+        "location": [config.LATITUDE, config.LONGITUDE],
+    }
+
+
+_OUTDOOR_CACHE: dict = {"key": None, "ts": 0.0, "points": []}
+_OUTDOOR_TTL = 3600.0  # seconds — Open-Meteo archive updates a few times a day
+
+
+def _outdoor_cached(days: int) -> tuple[list, str]:
+    """In-memory 1h cache around the Open-Meteo archive fetch (non-demo only)."""
+    import time as _time
+
+    key = (config.LATITUDE, config.LONGITUDE, days)
+    now = _time.time()
+    if _OUTDOOR_CACHE["key"] == key and now - _OUTDOOR_CACHE["ts"] < _OUTDOOR_TTL:
+        return _OUTDOOR_CACHE["points"], "open-meteo"
+    points = [[ts, v] for ts, v in openmeteo.fetch_archive(days)]
+    _OUTDOOR_CACHE.update(key=key, ts=now, points=points)
+    return points, "open-meteo"
 
 
 @app.get("/api/annotations")
