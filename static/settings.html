@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>climate-canvas — налаштування сенсорів</title>
+<title>climate-canvas</title>
 <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
 <link rel="manifest" href="/static/manifest.webmanifest">
 <meta name="theme-color" content="#0f1419">
@@ -18,47 +18,58 @@
 </head>
 <body>
 <header>
-  <h1>⚙️ Налаштування сенсорів</h1>
+  <h1>⚙️ <span data-i18n="settings_link_title">Налаштування сенсорів</span></h1>
   <a href="/">← До дашборда</a>
   <span id="mode-badge"></span>
+  <button id="lang-toggle" title="Мова інтерфейсу" aria-label="Перемкнути мову UA/EN">EN</button>
 </header>
 <main>
-  <h2>🏠 Home Assistant — підключення</h2>
-  <p class="hint">Вкажіть адресу інстансу та довготривалий токен доступу
+  <h2 data-i18n="setup_head">🏠 Home Assistant — підключення</h2>
+  <p class="hint" data-i18n="setup_hint">Вкажіть адресу інстансу та довготривалий токен доступу
     (HA → Профіль → Безпека → Long-Lived Access Tokens). Дані зберігаються у
     <code>data/settings.json</code> — змінні середовища більше не потрібні.</p>
   <form id="setup-form">
-    <label for="ha-url">URL інстансу</label>
+    <label for="ha-url" data-i18n="setup_url">URL інстансу</label>
     <input id="ha-url" type="url" placeholder="http://homeassistant.local:8123" autocomplete="off"
            aria-describedby="setup-status">
-    <label for="ha-token">Токен доступу</label>
+    <label for="ha-token" data-i18n="setup_token">Токен доступу</label>
     <input id="ha-token" type="password" placeholder="••••••••" autocomplete="new-password"
            aria-describedby="setup-status">
     <div class="setup-actions">
-      <button type="button" id="ha-test">🔌 Перевірити з'єднання</button>
-      <button type="submit" id="ha-save">💾 Зберегти</button>
+      <button type="button" id="ha-test" data-i18n="setup_test">🔌 Перевірити з'єднання</button>
+      <button type="submit" id="ha-save" data-i18n="setup_save">💾 Зберегти</button>
     </div>
     <p id="setup-status" class="hint" role="status" aria-live="polite"></p>
   </form>
 
-  <h2>Знайдені сенсори</h2>
+  <h2 data-i18n="sensors_head">Знайдені сенсори</h2>
   <table id="sensors-table">
-    <thead><tr><th>Area</th><th>Entity</th><th>Назва</th><th>Метрика</th><th>Значення</th></tr></thead>
+    <thead><tr>
+      <th data-i18n="th_area">Area</th><th data-i18n="th_entity">Entity</th>
+      <th data-i18n="th_name">Назва</th><th data-i18n="th_metric">Метрика</th>
+      <th data-i18n="th_value">Значення</th>
+    </tr></thead>
     <tbody></tbody>
   </table>
 
-  <h2>Запропоноване відображення кімнат</h2>
-  <p>Перевірте/відредагуйте відповідність сенсорів і зони вологості (за замовчуванням
+  <h2 data-i18n="mapping_head">Запропоноване відображення кімнат</h2>
+  <p data-i18n="mapping_hint">Перевірте/відредагуйте відповідність сенсорів і зони вологості (за замовчуванням
     30–50&nbsp;% — безпечний від цвілі діапазон), потім збережіть у <code>rooms.json</code>.</p>
   <table id="mapping-table">
-    <thead><tr><th>Кімната</th><th>temp_entity</th><th>humidity_entity</th><th>Вологість мін %</th><th>Вологість макс %</th></tr></thead>
+    <thead><tr>
+      <th data-i18n="th_room">Кімната</th><th data-i18n="th_entity">temp_entity</th>
+      <th data-i18n="th_metric2">humidity_entity</th>
+      <th data-i18n="th_hum_min">Вологість мін %</th><th data-i18n="th_hum_max">Вологість макс %</th>
+    </tr></thead>
     <tbody></tbody>
   </table>
-  <button id="save-btn">💾 Зберегти rooms.json</button>
+  <button id="save-btn" data-i18n="save_btn">💾 Зберегти rooms.json</button>
   <span id="save-status"></span>
 </main>
+<script src="/static/i18n.js"></script>
 <script>
 const $ = (s) => document.querySelector(s);
+const t = (key, params) => I18N.t(key, params);
 let suggested = {};
 
 // ---------- Setup wizard: HA URL + token ----------
@@ -66,16 +77,16 @@ async function loadSetup() {
   try {
     const s = await fetch("/api/setup").then((r) => r.json());
     $("#ha-url").value = s.url || "";
-    $("#ha-token").placeholder = s.token_hint ? `•••••••• (збережено ${s.token_hint})` : "••••••••";
+    $("#ha-token").placeholder = s.token_hint ? t("pass_saved_ph", { hint: s.token_hint }) : "••••••••";
     if (s.from_env) {
-      $("#setup-status").textContent = "Поточні URL/токен задані через змінні середовища — збережіть тут, щоб перевизначити.";
+      $("#setup-status").textContent = t("setup_env_note");
     }
   } catch { /* setup endpoint unavailable — ignore */ }
 }
 
 async function haTest() {
   const st = $("#setup-status");
-  st.textContent = "⏳ Перевіряю з'єднання…";
+  st.textContent = t("test_in_progress");
   const body = {};
   if ($("#ha-url").value.trim()) body.url = $("#ha-url").value.trim();
   if ($("#ha-token").value.trim()) body.token = $("#ha-token").value.trim();
@@ -84,10 +95,10 @@ async function haTest() {
   });
   const data = await r.json();
   if (data.ok) {
-    st.textContent = `✅ З'єднання встановлено — знайдено сенсорів: ${data.sensors}`;
+    st.textContent = t("test_ok", { n: data.sensors });
     st.className = "ok";
   } else {
-    st.textContent = `❌ Не вдалося підключитися: ${data.error ?? "невідома помилка"}`;
+    st.textContent = t("test_fail", { err: data.error ?? "?" });
     st.className = "err";
   }
 }
@@ -96,20 +107,18 @@ async function haSave(evt) {
   evt.preventDefault();
   const st = $("#setup-status");
   const url = $("#ha-url").value.trim(), token = $("#ha-token").value.trim();
-  if (!url || !token) { st.textContent = "❌ Вкажіть URL і токен."; st.className = "err"; return; }
+  if (!url || !token) { st.textContent = t("setup_need_both"); st.className = "err"; return; }
   const r = await fetch("/api/setup", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, token }),
   });
   const data = await r.json();
   if (r.ok) {
-    st.textContent = data.restart_required
-      ? "✅ Збережено. Перезапустіть застосунок, щоб перейти з демо на Home Assistant."
-      : `✅ Збережено (${data.token_hint}).`;
+    st.textContent = data.restart_required ? t("setup_saved_restart") : t("setup_saved", { hint: data.token_hint });
     st.className = "ok";
     $("#ha-token").value = "";
-    $("#ha-token").placeholder = `•••••••• (збережено ${data.token_hint})`;
+    $("#ha-token").placeholder = t("pass_saved_ph", { hint: data.token_hint });
   } else {
-    st.textContent = `❌ ${data.detail ?? "помилка"}`;
+    st.textContent = t("fail", { err: data.detail ?? "?" });
     st.className = "err";
   }
 }
@@ -123,7 +132,7 @@ async function load() {
   const tbody = $("#sensors-table tbody");
   tbody.innerHTML = (data.sensors || []).map((s) =>
     `<tr><td>${s.area}</td><td>${s.entity_id}</td><td>${s.name}</td><td>${s.metric}</td><td>${s.value ?? "—"}</td></tr>`
-  ).join("") || "<tr><td colspan='5'>Сенсорів не знайдено</td></tr>";
+  ).join("") || `<tr><td colspan='5'>${t("sensors_none")}</td></tr>`;
   suggested = data.suggested_rooms || {};
   renderMapping();
 }
@@ -132,13 +141,13 @@ function renderMapping() {
   const tbody = $("#mapping-table tbody");
   tbody.innerHTML = Object.entries(suggested).map(([room, cfg]) =>
     `<tr>
-      <td><input data-room="${room}" data-field="name" value="${room}"></td>
-      <td><input data-room="${room}" data-field="temp_entity" value="${cfg.temp_entity ?? ""}"></td>
-      <td><input data-room="${room}" data-field="humidity_entity" value="${cfg.humidity_entity ?? ""}"></td>
-      <td><input data-room="${room}" data-field="humidity_min" type="number" step="1" min="0" max="100" value="${cfg.humidity_min ?? 30}"></td>
-      <td><input data-room="${room}" data-field="humidity_max" type="number" step="1" min="0" max="100" value="${cfg.humidity_max ?? 50}"></td>
+      <td><input data-room="${room}" data-field="name" value="${room}" aria-label="${t("th_room")}"></td>
+      <td><input data-room="${room}" data-field="temp_entity" value="${cfg.temp_entity ?? ""}" aria-label="temp_entity"></td>
+      <td><input data-room="${room}" data-field="humidity_entity" value="${cfg.humidity_entity ?? ""}" aria-label="humidity_entity"></td>
+      <td><input data-room="${room}" data-field="humidity_min" type="number" step="1" min="0" max="100" value="${cfg.humidity_min ?? 30}" aria-label="${t("th_hum_min")}"></td>
+      <td><input data-room="${room}" data-field="humidity_max" type="number" step="1" min="0" max="100" value="${cfg.humidity_max ?? 50}" aria-label="${t("th_hum_max")}"></td>
     </tr>`
-  ).join("") || "<tr><td colspan='5'>Немає пропозицій</td></tr>";
+  ).join("") || `<tr><td colspan='5'>${t("no_suggestions")}</td></tr>`;
 }
 
 $("#mapping-table").addEventListener("change", (e) => {
@@ -168,7 +177,7 @@ $("#save-btn").addEventListener("click", async () => {
     body: JSON.stringify({ rooms }),
   });
   const body = await r.json();
-  $("#save-status").textContent = r.ok ? `✅ збережено: ${body.path}` : `❌ ${body.detail ?? "помилка"}`;
+  $("#save-status").textContent = r.ok ? t("saved_path", { path: body.path }) : t("fail", { err: body.detail ?? "?" });
   $("#save-status").className = r.ok ? "ok" : "err";
 });
 

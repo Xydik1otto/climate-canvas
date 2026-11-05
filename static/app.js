@@ -2,6 +2,10 @@
 const $ = (s) => document.querySelector(s);
 let timelineChart = null, seasonsChart = null;
 
+const t = (key, params) => I18N.t(key, params);
+const locale = () => (I18N.lang === "uk" ? "uk-UA" : "en-GB");
+const fmtTime = (ts) => new Date(ts).toLocaleString(locale(), { day: "2-digit", month: "2-digit", hour: "2-digit" });
+
 const api = (path) => fetch(path).then((r) => r.json());
 // Colors for Chart.js read from CSS variables, so charts follow the theme.
 const themeColors = () => {
@@ -27,8 +31,8 @@ function humidityClass(h, [lo, hi]) {
 // Mold-risk badge on room cards ("low" | "medium" | "high" from the API).
 function moldRiskClass(risk) {
   if (!risk) return "";
-  const label = { low: "низький", medium: "середній", high: "високий" }[risk] || risk;
-  return `<div class="mold-risk mold-${risk}" title="RH ≥ 70% при T < 20°C — високий ризик">⚠️ Цвіль: ${label}</div>`;
+  const label = t("mold_" + risk) || risk;
+  return `<div class="mold-risk mold-${risk}" title="${t("mold_title")}">${t("mold_line", { level: label })}</div>`;
 }
 
 // ---------- Rooms ----------
@@ -43,12 +47,12 @@ async function loadRooms() {
     card.className = "room-card";
     const co2 = st.co2 != null ? `<div class="hum">🫁 ${st.co2} ppm</div>` : "";
     const voc = st.voc != null ? `<div class="hum">🧪 ${st.voc} ppb VOC</div>` : "";
-    const dew = st.dew_point != null ? `<div class="hum">🌡 Точка роси: ${st.dew_point}°C</div>` : "";
+    const dew = st.dew_point != null ? `<div class="hum">${t("dew_point_line", { v: st.dew_point })}</div>` : "";
     const risk = moldRiskClass(st.mold_risk);
     const humCls = humidityClass(st.humidity, st.humidity_comfort || [30, 50]);
     card.innerHTML = `<h3>${room}</h3>
       <div class="temp ${cls}">${st.temperature ?? "—"}°C</div>
-      <div class="hum"><span class="${humCls}">💧 ${st.humidity ?? "—"}%</span> · комфорт ${st.humidity_comfort[0]}–${st.humidity_comfort[1]}% · T ${st.comfort[0]}–${st.comfort[1]}°C</div>${dew}${risk}${co2}${voc}`;
+      <div class="hum"><span class="${humCls}">${t("card_humidity", { v: st.humidity ?? "—", lo: st.humidity_comfort[0], hi: st.humidity_comfort[1], tlo: st.comfort[0], thi: st.comfort[1] })}</span></div>${dew}${risk}${co2}${voc}`;
     grid.appendChild(card);
   }
   const names = Object.keys(data.rooms);
@@ -94,32 +98,32 @@ async function loadTimeline() {
     }
   }
   $("#tl-annotations").innerHTML = annotations.length
-    ? "Мітки: " + annotations.map((a) =>
+    ? t("ann_prefix") + annotations.map((a) =>
         `<span class="ann"><b>${a.label}</b> <small>${a.ts.slice(0, 16).replace("T", " ")}</small>` +
-        `<button data-id="${a.id}" class="ann-del" title="видалити">✕</button></span>`).join(" ")
+        `<button data-id="${a.id}" class="ann-del" title="${t("ann_delete")}">✕</button></span>`).join(" ")
     : "";
   $("#tl-annotations").querySelectorAll(".ann-del").forEach((btn) =>
     btn.addEventListener("click", async () => {
       await fetch(`/api/annotations/${btn.dataset.id}`, { method: "DELETE" });
       loadTimeline();
     }));
-  const labels = points.map(([ts]) => new Date(ts).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" }));
+  const labels = points.map(([ts]) => fmtTime(ts));
   // Forecast 48h: labels continue after the history block; history datasets get nulls there.
   let forecastValues = [], forecastLabels = [];
   if (fc && fc.points.length) {
-    forecastLabels = fc.points.map(([ts]) => new Date(ts).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" }));
+    forecastLabels = fc.points.map(([ts]) => fmtTime(ts));
     forecastValues = fc.points.map(([, v]) => v);
   }
   const allLabels = labels.concat(forecastLabels);
   const historyNulls = Array(forecastLabels.length).fill(null);
   const datasets = [
-    { label: `${room} · ${metric}`, data: points.map(([, v]) => v).concat(historyNulls), pointRadius: 0, borderWidth: 1.5, borderColor: "#4ecdc4", tension: 0.2, spanGaps: false },
+    { label: t("dataset_label", { room, metric: t("metric_" + metric) }), data: points.map(([, v]) => v).concat(historyNulls), pointRadius: 0, borderWidth: 1.5, borderColor: "#4ecdc4", tension: 0.2, spanGaps: false },
   ];
   if (outdoorValues.length) {
-    datasets.push({ label: "Зовні (Open-Meteo)", data: outdoorValues.concat(historyNulls), pointRadius: 0, borderWidth: 1.5, borderColor: "#e5c07b", borderDash: [6, 4], tension: 0.2, spanGaps: false });
+    datasets.push({ label: t("outside_label"), data: outdoorValues.concat(historyNulls), pointRadius: 0, borderWidth: 1.5, borderColor: "#e5c07b", borderDash: [6, 4], tension: 0.2, spanGaps: false });
   }
   if (forecastValues.length) {
-    datasets.push({ label: "Прогноз 48 год", data: Array(points.length).fill(null).concat(forecastValues), pointRadius: 0, borderWidth: 1.5, borderColor: "#61afef", borderDash: [2, 3], tension: 0.2, spanGaps: false });
+    datasets.push({ label: t("forecast_48"), data: Array(points.length).fill(null).concat(forecastValues), pointRadius: 0, borderWidth: 1.5, borderColor: "#61afef", borderDash: [2, 3], tension: 0.2, spanGaps: false });
   }
   const ctx = $("#timeline-chart");
   if (timelineChart) timelineChart.destroy();
@@ -140,8 +144,8 @@ async function loadTimeline() {
           ctx.save();
           ctx.fillStyle = "rgba(10,16,26,0.45)";
           for (const [a, b] of bands) {
-            const x1 = x.getPixelForValue(labels.indexOf(new Date(a).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" })));
-            const x2 = x.getPixelForValue(labels.indexOf(new Date(b).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" })));
+            const x1 = x.getPixelForValue(labels.indexOf(fmtTime(a)));
+            const x2 = x.getPixelForValue(labels.indexOf(fmtTime(b)));
             if (x2 > x1) ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
           }
           ctx.restore();
@@ -181,7 +185,7 @@ async function loadTimeline() {
     const px = evt.x != null ? evt.x : evt.offsetX;
     const idx = Math.round(timelineChart.scales.x.getValueForPixel(px));
     if (idx == null || idx < 0 || idx >= points.length) return;
-    const label = prompt("Мітка (напр. «відкрито вікно»):");
+    const label = prompt(t("ann_prompt"));
     if (!label || !label.trim()) return;
     await fetch("/api/annotations", {
       method: "POST",
@@ -224,16 +228,16 @@ async function loadHeatmap() {
     const y = 18 + i * cell;
     svg += `<text x="0" y="${y + 11}" font-size="9" fill="#7a8a99">${d}</text>`;
     data.values[i].forEach((v, hr) => {
-      svg += `<rect x="${labelW + hr * cell}" y="${y}" width="${cell - 1}" height="${cell - 1}" fill="${color(v)}"><title>${d} ${hr}:00 — ${v ?? "немає даних"}${unit}</title></rect>`;
+      svg += `<rect x="${labelW + hr * cell}" y="${y}" width="${cell - 1}" height="${cell - 1}" fill="${color(v)}"><title>${d} ${hr}:00 — ${v ?? t("no_data_cell")}${unit}</title></rect>`;
     });
   });
   svg += "</svg>";
   $("#heatmap").innerHTML = svg;
   const legend = metric === "humidity"
-    ? `Сухо <span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(220,180,120), rgb(50,180,255))"></span> Вологo · ${data.days.length} днів`
+    ? t("legend_humidity", { bar: `<span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(220,180,120), rgb(50,180,255))"></span>`, n: data.days.length })
     : metric === "mold_risk"
-    ? `Ризик цвілі: <span style="color:#3f9d5f">низький</span> · <span style="color:#e5c07b">середній</span> · <span style="color:#e06c75">високий</span> · ${data.days.length} днів`
-    : `Холодно <span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(40,120,200), rgb(240,60,50))"></span> Спекотно · ${data.days.length} днів`;
+    ? t("legend_risk", { n: data.days.length })
+    : t("legend_temp", { bar: `<span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(40,120,200), rgb(240,60,50))"></span>`, n: data.days.length });
   $("#hm-legend").innerHTML = legend;
 }
 
@@ -248,14 +252,14 @@ async function loadSeasons() {
     type: "bar",
     data: {
       labels: years,
-      datasets: [{ label: `Середня ${metricName(data.metric)}, ${monthName(month)}`, data: years.map((y) => data.by_year[y]), backgroundColor: "#4ecdc4" }],
+      datasets: [{ label: t("seasons_title", { metric: t("metric_" + data.metric), month: monthName(month) }), data: years.map((y) => data.by_year[y]), backgroundColor: "#4ecdc4" }],
     },
     options: { plugins: { legend: { labels: { color: themeColors().fg } } }, scales: { y: { grid: { color: themeColors().grid } }, x: { grid: { display: false } } } },
   });
 }
 
-const metricName = (m) => ({temperature: "температура", humidity: "вологість", co2: "CO₂", voc: "VOC"}[m] || m);
-const monthName = (m) => ["січень","лютий","березень","квітень","травень","червень","липень","серпень","вересень","жовтень","листопад","грудень"][m - 1];
+const metricName = (m) => t("metric_" + m);
+const monthName = (m) => t("month_" + m);
 
 // ---------- Energy (kWh + cost) ----------
 let energyChart = null;
@@ -265,7 +269,7 @@ async function loadEnergy() {
   const price = parseFloat($("#en-price").value) || 0;
   const data = await api(`/api/energy?room=${encodeURIComponent(room)}&days=${days}&price=${price}`);
   $("#energy-total").textContent =
-    `Всього: ${data.total_kwh} kWh · ≈ ${data.cost} (за ${data.price}/kWh) · ${room}, ${days} дн.`;
+    t("energy_total", { kwh: data.total_kwh, cost: data.cost, price: data.price, room, days });
   const labels = data.daily.map(([d]) => d.slice(5)); // MM-DD
   const ctx = $("#energy-chart");
   if (energyChart) energyChart.destroy();
@@ -273,20 +277,21 @@ async function loadEnergy() {
     type: "bar",
     data: {
       labels,
-      datasets: [{ label: `kWh/день · ${room}`, data: data.daily.map(([, v]) => v), backgroundColor: "#e5c07b" }],
+      datasets: [{ label: t("kwh_day", { room }), data: data.daily.map(([, v]) => v), backgroundColor: "#e5c07b" }],
     },
     options: { plugins: { legend: { labels: { color: themeColors().fg } } }, scales: { y: { beginAtZero: true, grid: { color: themeColors().grid } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } } },
   });
 }
 
 // ---------- Tabs & wiring ----------
+const loaders = { rooms: loadRooms, timeline: loadTimeline, heatmap: loadHeatmap, seasons: loadSeasons, energy: loadEnergy };
+
 document.querySelectorAll("nav button").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll("nav button").forEach((b) => b.classList.remove("active"));
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     btn.classList.add("active");
     $(`#view-${btn.dataset.view}`).classList.add("active");
-    const loaders = { rooms: loadRooms, timeline: loadTimeline, heatmap: loadHeatmap, seasons: loadSeasons, energy: loadEnergy };
     loaders[btn.dataset.view]();
   });
 });
@@ -302,6 +307,13 @@ $("#en-price").addEventListener("change", () => {
 $("#en-price").value = localStorage.getItem("cc-energy-price") ?? "7.5";
 
 $("#se-month").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${monthName(i + 1)}</option>`).join("");
+
+// ---------- Language switch: re-render dynamic strings + the month dropdown ----------
+document.addEventListener("cc:langchange", () => {
+  $("#se-month").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${monthName(i + 1)}</option>`).join("");
+  const active = document.querySelector("nav button.active");
+  if (active) loaders[active.dataset.view]?.();
+});
 
 // ---------- Theme toggle (dark/light, persisted in localStorage) ----------
 function applyTheme(t) {

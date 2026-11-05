@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>climate-canvas — тижневий звіт</title>
+<title>climate-canvas</title>
 <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
 <link rel="manifest" href="/static/manifest.webmanifest">
 <meta name="theme-color" content="#0f1419">
@@ -26,54 +26,59 @@
 </head>
 <body>
 <header>
-  <h1>📊 Тижневий звіт</h1>
-  <a href="/" id="settings-link" title="Назад до дашборда">← Дашборд</a>
+  <h1>📊 <span data-i18n="report_title">Тижневий звіт</span></h1>
+  <a href="/" id="settings-link" data-i18n-title="report_back" title="Назад до дашборда" aria-label="Назад до дашборда">← <span data-i18n="report_back">Дашборд</span></a>
+  <button id="lang-toggle" title="Мова інтерфейсу" aria-label="Перемкнути мову UA/EN">EN</button>
 </header>
 <main>
-  <div id="report-status" class="hint">Завантаження…</div>
+  <div id="report-status" class="hint" data-i18n="report_loading">Завантаження…</div>
   <div id="report-chart" class="legend"></div>
   <div id="report-table"></div>
 
-  <h2>Експорт</h2>
+  <h2 data-i18n="export_head">Експорт</h2>
   <div class="actions">
     <a id="pdf-btn" class="btn" href="/api/report/weekly.pdf" download
-       aria-label="Завантажити тижневий звіт у PDF">⬇️ Завантажити PDF</a>
+       aria-label="Завантажити тижневий звіт у PDF" data-i18n="pdf_btn" data-i18n-aria="pdf_btn_aria">⬇️ Завантажити PDF</a>
   </div>
 
-  <h2>Надіслати на email (опційно)</h2>
-  <p class="hint">SMTP-налаштування зберігаються локально у <code>data/settings.json</code>.</p>
+  <h2 data-i18n="email_head">Надіслати на email (опційно)</h2>
+  <p class="hint" data-i18n="email_hint">SMTP-налаштування зберігаються локально у <code>data/settings.json</code>.</p>
   <form id="email-form">
-    <label for="em-to">Кому</label>
+    <label for="em-to" data-i18n="em_to">Кому</label>
     <input id="em-to" type="email" placeholder="you@example.com">
-    <label for="em-host">SMTP-сервер</label>
+    <label for="em-host" data-i18n="em_host">SMTP-сервер</label>
     <input id="em-host" type="text" placeholder="smtp.example.com">
-    <label for="em-port">Порт</label>
+    <label for="em-port" data-i18n="em_port">Порт</label>
     <input id="em-port" type="number" value="587">
-    <label for="em-user">Користувач</label>
+    <label for="em-user" data-i18n="em_user">Користувач</label>
     <input id="em-user" type="text" autocomplete="off">
-    <label for="em-pass">Пароль</label>
+    <label for="em-pass" data-i18n="em_pass">Пароль</label>
     <input id="em-pass" type="password" autocomplete="new-password">
-    <label for="em-from">Від (From)</label>
+    <label for="em-from" data-i18n="em_from">Від (From)</label>
     <input id="em-from" type="email" placeholder="climate-canvas@example.com">
-    <label class="chk"><input id="em-tls" type="checkbox" checked> TLS (STARTTLS)</label>
+    <label class="chk"><input id="em-tls" type="checkbox" checked> <span data-i18n="em_tls">TLS (STARTTLS)</span></label>
     <div class="actions">
-      <button type="button" id="em-save">💾 Зберегти SMTP</button>
-      <button type="submit" id="em-send">✉️ Надіслати звіт</button>
+      <button type="button" id="em-save" data-i18n="em_save">💾 Зберегти SMTP</button>
+      <button type="submit" id="em-send" data-i18n="em_send">✉️ Надіслати звіт</button>
     </div>
     <p id="email-status" class="hint" role="status" aria-live="polite"></p>
   </form>
 </main>
+<script src="/static/i18n.js"></script>
 <script>
 const PALETTE = ["#4ecdc4", "#e5c07b", "#61afef", "#e06c75", "#7bd88f", "#c678dd"];
+const t = (key, params) => I18N.t(key, params);
+const locale = () => (I18N.lang === "uk" ? "uk-UA" : "en-GB");
 
 async function loadReport() {
   const data = await fetch("/api/report/weekly").then((r) => r.json());
   const rooms = Object.entries(data.rooms);
   if (!rooms.length) {
-    document.querySelector("#report-status").textContent = "Немає даних за останні 7 днів.";
+    document.querySelector("#report-status").textContent = t("report_none");
     return;
   }
-  document.querySelector("#report-status").textContent = `Дані за останні ${data.days} днів · згенеровано ${new Date().toLocaleString("uk-UA")}`;
+  document.querySelector("#report-status").textContent =
+    t("report_generated", { days: data.days, gen: new Date().toLocaleString(locale()) });
 
   // ----- SVG line chart: daily mean temperature per room -----
   const W = 720, H = 280, PAD_L = 44, PAD_B = 28, PAD_T = 12, PAD_R = 12;
@@ -102,7 +107,8 @@ async function loadReport() {
   document.querySelector("#report-chart").innerHTML = svg + `<div class="legend">${legend}</div>`;
 
   // ----- Stats table -----
-  let table = "<table><tr><th>Кімната</th><th>Середня</th><th>Мін</th><th>Макс</th><th>Вологість (сер.)</th><th>Точок</th></tr>";
+  let table = "<table><tr>"
+    + `<th>${t("th_room")}</th><th>${t("th_avg")}</th><th>${t("th_min")}</th><th>${t("th_max")}</th><th>${t("th_hum")}</th><th>${t("th_points")}</th></tr>`;
   for (const [room, r] of rooms) {
     table += `<tr><td>${room}</td><td>${r.avg}°C</td><td>${r.min}°C</td><td>${r.max}°C</td>` +
       `<td>${r.humidity_avg != null ? r.humidity_avg + "%" : "—"}</td><td>${r.samples}</td></tr>`;
@@ -120,7 +126,7 @@ async function loadSmtp() {
     if (s.user) $("#em-user").value = s.user;
     if (s.from) $("#em-from").value = s.from;
     $("#em-tls").checked = s.tls !== false;
-    if (s.password_set) $("#em-pass").placeholder = `•••••••• (збережено ${s.password_hint})`;
+    if (s.password_set) $("#em-pass").placeholder = t("pass_saved_ph", { hint: s.password_hint });
   } catch { /* optional */ }
 }
 loadSmtp();
@@ -138,14 +144,14 @@ $("#em-save").addEventListener("click", async () => {
   const r = await fetch("/api/smtp", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
-  st.textContent = r.ok ? "✅ SMTP-налаштування збережено." : `❌ ${((await r.json()).detail ?? "помилка")}`;
+  st.textContent = r.ok ? t("smtp_saved") : t("fail", { err: (await r.json()).detail ?? "?" });
   st.className = r.ok ? "ok" : "err";
 });
 
 $("#email-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const st = $("#email-status");
-  st.textContent = "⏳ Формую PDF і надсилаю…";
+  st.textContent = t("email_sending");
   const body = { to: $("#em-to").value.trim() };
   if ($("#em-host").value.trim()) body.smtp_host = $("#em-host").value.trim();
   if ($("#em-pass").value.trim()) body.smtp_password = $("#em-pass").value.trim();
@@ -154,13 +160,16 @@ $("#email-form").addEventListener("submit", async (e) => {
   });
   const data = await r.json();
   if (r.ok) {
-    st.textContent = `✅ Звіт надіслано на ${data.to}.`;
+    st.textContent = t("email_sent", { to: data.to });
     st.className = "ok";
   } else {
-    st.textContent = `❌ ${data.detail ?? "помилка"}`;
+    st.textContent = t("fail", { err: data.detail ?? "?" });
     st.className = "err";
   }
 });
+
+// re-render dynamic strings when the language is switched
+document.addEventListener("cc:langchange", () => loadReport());
 </script>
 </body>
 </html>

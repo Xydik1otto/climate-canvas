@@ -19,16 +19,17 @@
 <header>
   <h1>🏠 Climate Canvas</h1>
   <nav>
-    <button data-view="rooms" class="active">Кімнати</button>
-    <button data-view="timeline">Таймлайн</button>
-    <button data-view="heatmap">Теплова мапа</button>
-    <button data-view="seasons">Сезони</button>
-    <button data-view="energy">Енергія</button>
-    <a href="/report" id="report-link" title="Тижневий звіт">📊</a>
-    <a href="/settings" id="settings-link" title="Налаштування сенсорів">⚙️</a>
+    <button data-view="rooms" class="active" data-i18n="nav_rooms">Кімнати</button>
+    <button data-view="timeline" data-i18n="nav_timeline">Таймлайн</button>
+    <button data-view="heatmap" data-i18n="nav_heatmap">Теплова мапа</button>
+    <button data-view="seasons" data-i18n="nav_seasons">Сезони</button>
+    <button data-view="energy" data-i18n="nav_energy">Енергія</button>
+    <a href="/report" id="report-link" data-i18n-title="report_link_title" title="Тижневий звіт" aria-label="Тижневий звіт">📊</a>
+    <a href="/settings" id="settings-link" data-i18n-title="settings_link_title" title="Налаштування сенсорів" aria-label="Налаштування сенсорів">⚙️</a>
   </nav>
   <span id="mode-badge"></span>
-  <button id="theme-toggle" title="Світла/темна тема">☀️</button>
+  <button id="lang-toggle" title="Мова інтерфейсу" aria-label="Перемкнути мову UA/EN">EN</button>
+  <button id="theme-toggle" data-i18n-title="theme_title" title="Світла/темна тема" aria-label="Перемкнути світлу/темну тему">☀️</button>
 </header>
 
 <main>
@@ -38,66 +39,67 @@
 
   <section id="view-timeline" class="view">
     <div class="controls">
-      <select id="tl-room"></select>
-      <select id="tl-metric">
-        <option value="temperature">Температура</option>
-        <option value="humidity">Вологість</option>
-        <option value="co2">CO₂</option>
-        <option value="voc">VOC</option>
+      <select id="tl-room" aria-label="Кімната"></select>
+      <select id="tl-metric" aria-label="Метрика">
+        <option value="temperature" data-i18n="metric_temperature">Температура</option>
+        <option value="humidity" data-i18n="metric_humidity">Вологість</option>
+        <option value="co2" data-i18n="metric_co2">CO₂</option>
+        <option value="voc" data-i18n="metric_voc">VOC</option>
       </select>
-      <select id="tl-days">
-        <option value="7">7 днів</option>
-        <option value="30">30 днів</option>
-        <option value="90">90 днів</option>
+      <select id="tl-days" aria-label="Період">
+        <option value="7" data-i18n="days_7">7 днів</option>
+        <option value="30" data-i18n="days_30">30 днів</option>
+        <option value="90" data-i18n="days_90">90 днів</option>
       </select>
-      <label class="hint"><input type="checkbox" id="tl-forecast"> Прогноз 48 год</label>
+      <label class="hint"><input type="checkbox" id="tl-forecast"> <span data-i18n="forecast_label">Прогноз 48 год</span></label>
     </div>
-    <canvas id="timeline-chart" height="110"></canvas>
-    <div id="tl-hint" class="hint">Клікніть по графіку, щоб додати мітку (відкрито вікно, відпустка…)</div>
+    <canvas id="timeline-chart" height="110" role="img" aria-label="Графік температури та вологості в часі"></canvas>
+    <div id="tl-hint" class="hint" data-i18n="tl_hint">Клікніть по графіку, щоб додати мітку (відкрито вікно, відпустка…)</div>
     <div id="tl-annotations"></div>
   </section>
 
   <section id="view-heatmap" class="view">
     <div class="controls">
-      <select id="hm-room"></select>
-      <select id="hm-metric">
-        <option value="temperature">Температура</option>
-        <option value="humidity">Вологість</option>
-        <option value="dew_point">Точка роси</option>
-        <option value="mold_risk">Ризик цвілі</option>
+      <select id="hm-room" aria-label="Кімната"></select>
+      <select id="hm-metric" aria-label="Метрика">
+        <option value="temperature" data-i18n="metric_temperature">Температура</option>
+        <option value="humidity" data-i18n="metric_humidity">Вологість</option>
+        <option value="dew_point" data-i18n="metric_dew_point">Точка роси</option>
+        <option value="mold_risk" data-i18n="metric_mold_risk">Ризик цвілі</option>
       </select>
-      <select id="hm-days">
-        <option value="30">30 днів</option>
-        <option value="90" selected>90 днів</option>
+      <select id="hm-days" aria-label="Період">
+        <option value="30" data-i18n="days_30">30 днів</option>
+        <option value="90" selected data-i18n="days_90">90 днів</option>
       </select>
     </div>
-    <div id="heatmap"></div>
+    <div id="heatmap" role="img" aria-label="Теплова мапа день × година"></div>
     <div id="hm-legend"></div>
   </section>
 
   <section id="view-seasons" class="view">
     <div class="controls">
-      <select id="se-room"></select>
-      <select id="se-month"></select>
+      <select id="se-room" aria-label="Кімната"></select>
+      <select id="se-month" aria-label="Місяць"></select>
     </div>
-    <canvas id="seasons-chart" height="110"></canvas>
+    <canvas id="seasons-chart" height="110" role="img" aria-label="Порівняння сезонів по роках"></canvas>
   </section>
 
   <section id="view-energy" class="view">
     <div class="controls">
-      <select id="en-room"></select>
-      <select id="en-days">
-        <option value="7">7 днів</option>
-        <option value="30" selected>30 днів</option>
-        <option value="90">90 днів</option>
+      <select id="en-room" aria-label="Кімната"></select>
+      <select id="en-days" aria-label="Період">
+        <option value="7" data-i18n="days_7">7 днів</option>
+        <option value="30" selected data-i18n="days_30">30 днів</option>
+        <option value="90" data-i18n="days_90">90 днів</option>
       </select>
-      <label>Ціна kWh: <input id="en-price" type="number" step="0.01" min="0" style="width:90px"></label>
+      <label><span data-i18n="energy_price">Ціна kWh:</span> <input id="en-price" type="number" step="0.01" min="0" style="width:90px" aria-label="Ціна kWh"></label>
     </div>
     <div id="energy-total"></div>
-    <canvas id="energy-chart" height="110"></canvas>
+    <canvas id="energy-chart" height="110" role="img" aria-label="Споживання енергії по днях"></canvas>
   </section>
 </main>
 
+<script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
