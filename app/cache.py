@@ -76,6 +76,25 @@ class Cache:
         self.conn.commit()
         return cur.rowcount > 0
 
+    def wipe(self) -> int:
+        """Delete ALL readings and annotations (data-safety: UI asks to confirm)."""
+        n = self.conn.execute("DELETE FROM readings").rowcount
+        self.conn.execute("DELETE FROM annotations")
+        self.conn.commit()
+        return n
+
+    def all_readings(self) -> list[tuple[str, str, str, float]]:
+        """Every cached reading (room, metric, ts, value) — full-data export."""
+        cur = self.conn.execute(
+            "SELECT room, metric, ts, value FROM readings ORDER BY ts, room, metric"
+        )
+        return cur.fetchall()
+
+    def all_annotations(self) -> list[tuple[int, str, str, str]]:
+        """Every annotation (id, room, ts, label) — full-data export."""
+        cur = self.conn.execute("SELECT id, room, ts, label FROM annotations ORDER BY id")
+        return cur.fetchall()
+
 
 def hourly_mean(points: list[tuple[str, float]]) -> list[tuple[str, float]]:
     """Aggregate raw (ts, value) points to hourly means, keyed by hour bucket."""

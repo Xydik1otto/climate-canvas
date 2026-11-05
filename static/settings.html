@@ -65,6 +65,15 @@
   </table>
   <button id="save-btn" data-i18n="save_btn">💾 Зберегти rooms.json</button>
   <span id="save-status"></span>
+
+  <h2 data-i18n="data_head">Дані</h2>
+  <p data-i18n="data_hint">Всі дані зберігаються локально. Зробіть резервну копію перед оновленням.</p>
+  <div class="setup-actions">
+    <a class="btn" href="/api/export/all?format=json" download data-i18n="export_json">⬇️ Експорт усього (JSON)</a>
+    <a class="btn" href="/api/export/all?format=csv" download data-i18n="export_csv_all">⬇️ Експорт усього (CSV)</a>
+    <button id="wipe-btn" class="danger" data-i18n="wipe_btn">🗑 Видалити всі дані</button>
+  </div>
+  <p id="wipe-status" role="status" aria-live="polite"></p>
 </main>
 <script src="/static/i18n.js"></script>
 <script>
@@ -179,6 +188,16 @@ $("#save-btn").addEventListener("click", async () => {
   const body = await r.json();
   $("#save-status").textContent = r.ok ? t("saved_path", { path: body.path }) : t("fail", { err: body.detail ?? "?" });
   $("#save-status").className = r.ok ? "ok" : "err";
+});
+
+// ---------- Data safety: wipe with an explicit warning ----------
+$("#wipe-btn").addEventListener("click", async () => {
+  if (!confirm(t("wipe_confirm"))) return;
+  const r = await fetch("/api/data?confirm=DELETE", { method: "DELETE" });
+  const body = await r.json();
+  const st = $("#wipe-status");
+  st.textContent = r.ok ? t("wipe_done", { n: body.deleted_readings }) : t("fail", { err: body.detail ?? "?" });
+  st.className = r.ok ? "ok" : "err";
 });
 
 load();

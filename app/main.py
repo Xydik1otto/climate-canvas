@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import threading
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
@@ -523,6 +524,59 @@ def save_rooms_config(payload: dict) -> dict:
             raise HTTPException(422, f"room {room!r}: humidity_min must be below humidity_max")
     path = config.save_rooms(rooms)
     return {"status": "ok", "rooms": rooms, "path": str(path)}
+
+
+# ---------- Data safety: one-click full export + confirmed wipe ----------
+
+@app.get("/api/export/all")
+def export_all(format: str = Query("json", pattern="^(json|csv)$")) -> Response:
+    """One-click export of ALL local data: readings + annotations (JSON or CSV)."""
+    cache = get_cache()
+    exported_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+    if format == "json":
+        readings = cache.all_readings()
+        annotations = [
+            {"id": i, "room": room, "ts": ts, "label": label}
+            for i, room, ts, label in cache.all_annotations()
+        ]
+        payload = {
+            "app": "climate-canvas",
+            "version": app.version,
+            "exported_at": exported_at,
+            "readings": [{"room": r, "metric": m, "ts": ts, "value": v} for r, m, ts, v in readings],
+            "annotations": annotations,
+        }
+        stamp = exported_at[:10]
+        return Response(
+            json.dumps(payload, ensure_ascii=False, indent=1),
+            media_type="application/json; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="climate-canvas-all-{stamp}.json"'},
+        )
+    buf = io.StringIO(newline="")
+    writer = csv.writer(buf)
+    writer.writerow(["room", "metric", "ts", "value"])
+    for room, metric, ts, value in cache.all_readings():
+        writer.writerow([room, metric, ts, value])
+    buf.seek(0)
+    stamp = exported_at[:10]
+    return Response(
+        buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="climate-canvas-all-{stamp}.csv"'},
+    )
+
+
+@app.delete("/api/data")
+def wipe_data(confirm: str = Query("", description='must be exactly "DELETE"')) -> dict:
+    """Delete ALL local readings and annotations.
+
+    The UI shows a warning first; the request itself must carry
+    ?confirm=DELETE so no accidental single call destroys the history.
+    """
+    if confirm != "DELETE":
+        raise HTTPException(422, 'safety: pass ?confirm=DELETE to erase all data')
+    deleted = get_cache().wipe()
+    return {"status": "ok", "deleted_readings": deleted}
 
 
 @app.get("/api/export/csv")
