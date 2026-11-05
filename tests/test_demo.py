@@ -44,4 +44,4 @@ def test_seed_cache_populates_db(tmp_path):
     db = Cache(tmp_path / "test.db")
     rooms = {"TestRoom": {"temp_entity": "sensor.test_temp", "humidity_entity": "sensor.test_hum"}}
     seed_cache(db, rooms=rooms, days=3)
-    assert db.count() == 3 * 24 * 3  # temperature + humidity + energy per hour
+    assert db.count() == 3 * 24 * 5  # temp + humidity + energy + co2 + voc per hour

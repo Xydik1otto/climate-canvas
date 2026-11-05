@@ -21,10 +21,10 @@ COMFORT_MAX = 24.0
 ENERGY_PRICE = float(os.environ.get("ENERGY_PRICE", "7.5"))
 
 DEFAULT_ROOMS = {
-    "Living Room": {"temp_entity": "sensor.living_room_temp", "humidity_entity": "sensor.living_room_hum", "energy_entity": "sensor.living_room_energy"},
-    "Bedroom": {"temp_entity": "sensor.bedroom_temp", "humidity_entity": "sensor.bedroom_hum", "energy_entity": "sensor.bedroom_energy"},
-    "Kitchen": {"temp_entity": "sensor.kitchen_temp", "humidity_entity": "sensor.kitchen_hum", "energy_entity": "sensor.kitchen_energy"},
-    "Office": {"temp_entity": "sensor.office_temp", "humidity_entity": "sensor.office_hum", "energy_entity": "sensor.office_energy"},
+    "Living Room": {"temp_entity": "sensor.living_room_temp", "humidity_entity": "sensor.living_room_hum", "energy_entity": "sensor.living_room_energy", "co2_entity": "sensor.living_room_co2", "voc_entity": "sensor.living_room_voc"},
+    "Bedroom": {"temp_entity": "sensor.bedroom_temp", "humidity_entity": "sensor.bedroom_hum", "energy_entity": "sensor.bedroom_energy", "co2_entity": "sensor.bedroom_co2", "voc_entity": "sensor.bedroom_voc"},
+    "Kitchen": {"temp_entity": "sensor.kitchen_temp", "humidity_entity": "sensor.kitchen_hum", "energy_entity": "sensor.kitchen_energy", "co2_entity": "sensor.kitchen_co2", "voc_entity": "sensor.kitchen_voc"},
+    "Office": {"temp_entity": "sensor.office_temp", "humidity_entity": "sensor.office_hum", "energy_entity": "sensor.office_energy", "co2_entity": "sensor.office_co2", "voc_entity": "sensor.office_voc"},
 }
 
 

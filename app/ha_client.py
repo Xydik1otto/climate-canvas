@@ -34,6 +34,10 @@ def parse_states(payload: list[dict[str, Any]]) -> dict[str, dict[str, float | N
             metric = "humidity"
         elif unit == "kWh":
             metric = "energy"
+        elif unit == "ppm":
+            metric = "co2"
+        elif unit == "ppb":
+            metric = "voc"
         else:
             continue
         entry = out.setdefault(entity_id, {})
@@ -60,6 +64,10 @@ def parse_history(payload: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
             metric = "humidity"
         elif unit == "kWh":
             metric = "energy"
+        elif unit == "ppm":
+            metric = "co2"
+        elif unit == "ppb":
+            metric = "voc"
         else:
             continue
         for st in entity_states:

@@ -49,6 +49,20 @@ def hour_value(room: str, ts: datetime, metric: str) -> float:
         heating = 0.35 * max(0.0, -season) / 4.0  # more kWh in cold months
         e_noise = random.Random(f"{room}|{ts.date().isoformat()}|e").uniform(-0.12, 0.12)
         return round(max(0.05, base + heating + e_noise), 3)
+    if metric == "co2":
+        # Indoor CO2: fresh 450 ppm baseline, people home in the evening.
+        base = 450.0
+        if 18 <= ts.hour < 23:
+            base += 350.0
+        elif 7 <= ts.hour < 9:
+            base += 150.0
+        c_noise = random.Random(f"{room}|{ts.date().isoformat()}|c").uniform(-40.0, 40.0)
+        return round(max(400.0, base + c_noise), 1)
+    if metric == "voc":
+        # VOC in ppb, loosely tracking CO2 activity.
+        v_noise = random.Random(f"{room}|{ts.date().isoformat()}|v").uniform(-15.0, 15.0)
+        base = 110.0 + (60.0 if 18 <= ts.hour < 23 else 0.0)
+        return round(max(50.0, base + v_noise), 1)
     raise ValueError(f"unknown metric: {metric}")
 
 
@@ -59,16 +73,19 @@ def generate_hours(room: str, hours: int = HOURLY_DAYS * 24, end: datetime | Non
     for i in range(hours, 0, -1):
         ts = end - timedelta(hours=i)
         ts_iso = ts.strftime("%Y-%m-%dT%H:00:00+00:00")
-        for metric in ("temperature", "humidity", "energy"):
+        for metric in ("temperature", "humidity", "energy", "co2", "voc"):
             out.append({"entity_id": room, "ts": ts_iso, "metric": metric, "value": hour_value(room, ts, metric)})
     return out
 
 
 def current_state(room: str, now: datetime | None = None) -> dict[str, float]:
     now = now or datetime.now(timezone.utc)
+    h0 = now.replace(minute=0, second=0, microsecond=0)
     return {
-        "temperature": hour_value(room, now.replace(minute=0, second=0, microsecond=0), "temperature"),
-        "humidity": hour_value(room, now.replace(minute=0, second=0, microsecond=0), "humidity"),
+        "temperature": hour_value(room, h0, "temperature"),
+        "humidity": hour_value(room, h0, "humidity"),
+        "co2": hour_value(room, h0, "co2"),
+        "voc": hour_value(room, h0, "voc"),
     }
 
 

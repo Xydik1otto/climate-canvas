@@ -21,9 +21,11 @@ async function loadRooms() {
     const cls = comfortClass(st.temperature, st.comfort);
     const card = document.createElement("div");
     card.className = "room-card";
+    const co2 = st.co2 != null ? `<div class="hum">🫁 ${st.co2} ppm</div>` : "";
+    const voc = st.voc != null ? `<div class="hum">🧪 ${st.voc} ppb VOC</div>` : "";
     card.innerHTML = `<h3>${room}</h3>
       <div class="temp ${cls}">${st.temperature ?? "—"}°C</div>
-      <div class="hum">💧 ${st.humidity ?? "—"}% · комфорт ${st.comfort[0]}–${st.comfort[1]}°C</div>`;
+      <div class="hum">💧 ${st.humidity ?? "—"}% · комфорт ${st.comfort[0]}–${st.comfort[1]}°C</div>${co2}${voc}`;
     grid.appendChild(card);
   }
   const names = Object.keys(data.rooms);
@@ -198,7 +200,7 @@ async function loadSeasons() {
   });
 }
 
-const metricName = (m) => (m === "temperature" ? "температура" : "вологість");
+const metricName = (m) => ({temperature: "температура", humidity: "вологість", co2: "CO₂", voc: "VOC"}[m] || m);
 const monthName = (m) => ["січень","лютий","березень","квітень","травень","червень","липень","серпень","вересень","жовтень","листопад","грудень"][m - 1];
 
 // ---------- Energy (kWh + cost) ----------

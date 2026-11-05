@@ -84,9 +84,13 @@ def rooms() -> dict:
         for room, cfg in rooms_cfg.items():
             t = (states.get(cfg["temp_entity"]) or {}).get("temperature")
             h = (states.get(cfg["humidity_entity"]) or {}).get("humidity")
+            c = (states.get(cfg.get("co2_entity") or "") or {}).get("co2")
+            v = (states.get(cfg.get("voc_entity") or "") or {}).get("voc")
             out[room] = {
                 "temperature": t,
                 "humidity": h,
+                "co2": c,
+                "voc": v,
                 "comfort": [config.COMFORT_MIN, config.COMFORT_MAX],
             }
     return {"rooms": out, "demo": config.DEMO}
@@ -95,7 +99,7 @@ def rooms() -> dict:
 @app.get("/api/timeline")
 def timeline(
     room: str = Query(...),
-    metric: str = Query("temperature", pattern="^(temperature|humidity)$"),
+    metric: str = Query("temperature", pattern="^(temperature|humidity|co2|voc)$"),
     days: int = Query(7, ge=1, le=365),
 ) -> dict:
     _room_metric(room, metric)  # validates room name
@@ -109,7 +113,7 @@ def timeline(
 @app.get("/api/heatmap")
 def heatmap(
     room: str = Query(...),
-    metric: str = Query("temperature", pattern="^(temperature|humidity)$"),
+    metric: str = Query("temperature", pattern="^(temperature|humidity|co2|voc)$"),
     days: int = Query(90, ge=1, le=365),
 ) -> dict:
     _room_metric(room, metric)  # validates room name
@@ -122,7 +126,7 @@ def heatmap(
 @app.get("/api/seasons")
 def seasons(
     room: str = Query(...),
-    metric: str = Query("temperature", pattern="^(temperature|humidity)$"),
+    metric: str = Query("temperature", pattern="^(temperature|humidity|co2|voc)$"),
     month: int = Query(1, ge=1, le=12),
 ) -> dict:
     _room_metric(room, metric)  # validates room name
@@ -234,7 +238,7 @@ def save_rooms_config(payload: dict) -> dict:
 @app.get("/api/export/csv")
 def export_csv(
     room: str = Query(...),
-    metric: str = Query("temperature", pattern="^(temperature|humidity)$"),
+    metric: str = Query("temperature", pattern="^(temperature|humidity|co2|voc)$"),
     days: int = Query(7, ge=1, le=365),
 ) -> StreamingResponse:
     """Download raw cached readings as CSV (Excel/LibreOffice friendly)."""
