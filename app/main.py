@@ -206,8 +206,7 @@ def timeline(
     _room_metric(room, metric)  # validates room name
     cache = get_cache()
     since = cache_mod.hours_ago_iso(days * 24)
-    points = cache.since(room, metric, since)
-    series = cache_mod.hourly_mean(points)
+    series = cache.hourly_since(room, metric, since)
     return {"room": room, "metric": metric, "days": days, "points": series}
 
 
@@ -216,8 +215,8 @@ HEAT_METRICS = r"^(temperature|humidity|co2|voc|dew_point|mold_risk)$"
 
 def _dew_or_risk_points(cache: cache_mod.Cache, room: str, since: str, metric: str) -> list[tuple[str, float]]:
     """Join cached temperature+humidity hourly means and derive dew point / mold risk."""
-    tpts = cache_mod.hourly_mean(cache.since(room, "temperature", since))
-    hpts = dict(cache_mod.hourly_mean(cache.since(room, "humidity", since)))
+    tpts = cache.hourly_since(room, "temperature", since)
+    hpts = dict(cache.hourly_since(room, "humidity", since))
     out = []
     for ts, t in tpts:
         h = hpts.get(ts)
@@ -245,8 +244,7 @@ def heatmap(
     _room_metric(room, metric)  # validates room name
     cache = get_cache()
     since = cache_mod.hours_ago_iso(days * 24)
-    points = cache.since(room, metric, since)
-    return cache_mod.heatmap_matrix(points, days)
+    return cache.heatmap_since(room, metric, since, days)
 
 
 @app.get("/api/seasons")

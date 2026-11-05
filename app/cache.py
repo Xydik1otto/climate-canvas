@@ -11,6 +11,8 @@ class Cache:
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(path), check_same_thread=False)
+        self._rowcount = 0
+        self._agg_cache: dict[tuple, object] = {}
         self.conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS readings (
@@ -31,18 +33,27 @@ class Cache:
             """
         )
         self.conn.commit()
+        self._rowcount = self.count()
+
+    def _invalidate(self) -> None:
+        """Drop memoized aggregates after any write (rowcount changes too)."""
+        self._agg_cache.clear()
 
     def add_reading(self, room: str, metric: str, ts: str, value: float) -> None:
         self.conn.execute(
             "INSERT OR REPLACE INTO readings(room, metric, ts, value) VALUES (?, ?, ?, ?)",
             (room, metric, ts, value),
         )
+        self._rowcount += 1
+        self._invalidate()
 
     def add_readings(self, rows: list[tuple[str, str, str, float]]) -> None:
         self.conn.executemany(
             "INSERT OR REPLACE INTO readings(room, metric, ts, value) VALUES (?, ?, ?, ?)", rows
         )
         self.conn.commit()
+        self._rowcount = self.count()
+        self._invalidate()
 
     def since(self, room: str, metric: str, since_iso: str) -> list[tuple[str, float]]:
         cur = self.conn.execute(
@@ -81,6 +92,8 @@ class Cache:
         n = self.conn.execute("DELETE FROM readings").rowcount
         self.conn.execute("DELETE FROM annotations")
         self.conn.commit()
+        self._rowcount = 0
+        self._invalidate()
         return n
 
     def all_readings(self) -> list[tuple[str, str, str, float]]:
@@ -95,14 +108,44 @@ class Cache:
         cur = self.conn.execute("SELECT id, room, ts, label FROM annotations ORDER BY id")
         return cur.fetchall()
 
+    # ----- memoized aggregates (hot endpoints: /api/timeline, /api/heatmap) -----
+
+    def hourly_since(self, room: str, metric: str, since_iso: str) -> list[tuple[str, float]]:
+        """`hourly_mean(since(...))` memoized per (room, metric, since, rowcount).
+
+        A repeat request within the same hour window reuses the computed
+        series instead of re-reading and re-aggregating the raw table.
+        Any write bumps rowcount / clears the memo, so results stay fresh.
+        """
+        key = ("hourly", room, metric, since_iso, self._rowcount)
+        cached = self._agg_cache.get(key)
+        if cached is None:
+            cached = hourly_mean(self.since(room, metric, since_iso))
+            self._agg_cache[key] = cached
+        return cached
+
+    def heatmap_since(self, room: str, metric: str, since_iso: str, days: int) -> dict:
+        """`heatmap_matrix(since(...), days)` memoized like `hourly_since`."""
+        key = ("heatmap", room, metric, since_iso, days, self._rowcount)
+        cached = self._agg_cache.get(key)
+        if cached is None:
+            cached = heatmap_matrix(self.since(room, metric, since_iso), days)
+            self._agg_cache[key] = cached
+        return cached
+
 
 def hourly_mean(points: list[tuple[str, float]]) -> list[tuple[str, float]]:
     """Aggregate raw (ts, value) points to hourly means, keyed by hour bucket."""
-    buckets: dict[str, list[float]] = {}
+    sums: dict[str, list[float]] = {}  # hour -> [running_sum, count]
     for ts, value in points:
         hour = ts[:13] + ":00:00+00:00" if len(ts) >= 13 else ts
-        buckets.setdefault(hour, []).append(value)
-    return [(h, round(sum(v) / len(v), 3)) for h, v in sorted(buckets.items())]
+        acc = sums.get(hour)
+        if acc is None:
+            sums[hour] = [value, 1]
+        else:
+            acc[0] += value
+            acc[1] += 1
+    return [(h, round(acc[0] / acc[1], 3)) for h, acc in sorted(sums.items())]
 
 
 def heatmap_matrix(points: list[tuple[str, float]], days: int) -> dict:
@@ -111,22 +154,26 @@ def heatmap_matrix(points: list[tuple[str, float]], days: int) -> dict:
     Returns {"days": [iso-date...], "hours": [0..23], "values": [[per-hour...]...]}
     with None where no data exists for a cell.
     """
-    grid: dict[str, list[list[float]]] = {}
+    sums: dict[str, list[list[float]]] = {}  # date -> 24 x [running_sum, count]
     for ts, value in points:
         try:
             dt = datetime.fromisoformat(ts)
         except ValueError:
             continue
         key = dt.strftime("%Y-%m-%d")
-        grid.setdefault(key, [[] for _ in range(24)])[dt.hour].append(value)
+        row = sums.get(key)
+        if row is None:
+            row = sums[key] = [[0.0, 0] for _ in range(24)]
+        cell = row[dt.hour]
+        cell[0] += value
+        cell[1] += 1
     # Keep only the last `days` dates with data.
-    dates = sorted(grid)[-days:]
+    dates = sorted(sums)[-days:]
     values = []
     for d in dates:
         row = []
-        for h in range(24):
-            cell = grid[d][h]
-            row.append(round(sum(cell) / len(cell), 2) if cell else None)
+        for acc in sums[d]:
+            row.append(round(acc[0] / acc[1], 2) if acc[1] else None)
         values.append(row)
     return {"days": dates, "hours": list(range(24)), "values": values}
 
