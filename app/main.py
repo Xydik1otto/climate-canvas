@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import cache as cache_mod
-from . import climate, config, demo_data, discover, ha_client, openmeteo, report_pdf, sync
+from . import climate, config, demo_data, discover, floors, ha_client, mqtt_ingest, openmeteo, report_html, report_pdf, sync
 
 _cache: cache_mod.Cache | None = None
 _pull_thread: threading.Thread | None = None
@@ -176,6 +176,7 @@ def rooms() -> dict:
         else:
             out["dew_point"] = None
             out["mold_risk"] = None
+        out["floor"] = cfg.get("floor") if isinstance(cfg, dict) else None
         return out
 
     if config.DEMO:
@@ -195,6 +196,14 @@ def rooms() -> dict:
             v = (states.get(cfg.get("voc_entity") or "") or {}).get("voc")
             out[room] = enrich(room, t, h, {"temperature": t, "humidity": h, "co2": c, "voc": v})
     return {"rooms": out, "demo": config.DEMO}
+
+
+@app.get("/api/floors")
+def floors_view() -> dict:
+    """Кімнати, згруповані за поверхами (+ середні поточні значення поверху)."""
+    rooms_cfg = config.load_rooms()
+    current = floors.current_room_values()
+    return {"floors": floors.floor_summary(rooms_cfg, current), "demo": config.DEMO}
 
 
 @app.get("/api/timeline")
@@ -366,6 +375,18 @@ def weekly_report_pdf() -> Response:
     )
 
 
+@app.get("/api/report/weekly.html")
+def weekly_report_html() -> Response:
+    """Download the weekly report as a self-contained HTML file (inline styles)."""
+    html_text = report_html.build_html(weekly_report_data())
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return Response(
+        html_text,
+        media_type="text/html; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="climate-canvas-weekly-{stamp}.html"'},
+    )
+
+
 @app.get("/api/smtp")
 def get_smtp() -> dict:
     """Saved SMTP settings for the optional report email (password masked)."""
@@ -413,13 +434,17 @@ def save_smtp(payload: dict) -> dict:
 def email_weekly_report(payload: dict) -> dict:
     """Email the weekly PDF report (SMTP required: posted or saved in settings).
 
-    Body: {"to": str, plus optional smtp_host/smtp_port/smtp_user/smtp_password/
-    smtp_from/smtp_tls to override the saved settings}.
+    Body: {"to": str, "format": "pdf"|"html" (optional, default pdf), plus
+    optional smtp_host/smtp_port/smtp_user/smtp_password/smtp_from/smtp_tls
+    to override the saved settings}.
     """
     data = payload or {}
     to = data.get("to")
     if not isinstance(to, str) or "@" not in to:
         raise HTTPException(422, 'body must be {"to": "you@example.com", "smtp_*": optional overrides}')
+    fmt = data.get("format", "pdf")
+    if fmt not in ("pdf", "html"):
+        raise HTTPException(422, 'format must be "pdf" or "html"')
     saved = config.load_settings()
     cfg = {
         "host": data.get("smtp_host") or saved.get("smtp_host"),
@@ -431,12 +456,143 @@ def email_weekly_report(payload: dict) -> dict:
     }
     if not cfg["host"]:
         raise HTTPException(400, "SMTP is not configured: fill the SMTP settings or add smtp_host to the request")
-    pdf_bytes = report_pdf.build_pdf(weekly_report_data())
+    if fmt == "pdf":
+        body = report_pdf.build_pdf(weekly_report_data())
+        try:
+            msg_id = report_pdf.send_email(cfg, to, body)
+        except Exception as exc:  # noqa: BLE001 — surface SMTP errors to the UI
+            raise HTTPException(502, f"SMTP error: {exc}")
+    else:
+        body = report_html.build_html(weekly_report_data())
+        try:
+            msg_id = report_pdf.send_html_email(cfg, to, body)
+        except Exception as exc:  # noqa: BLE001 — surface SMTP errors to the UI
+            raise HTTPException(502, f"SMTP error: {exc}")
+    return {"status": "ok", "to": to, "format": fmt, "message_id": msg_id}
+
+
+# ---------- MQTT ingestion (Zigbee2MQTT sensors → local cache) ----------
+
+MQTT_KEYS = ("mqtt_enabled", "mqtt_host", "mqtt_port", "mqtt_topic_prefix", "mqtt_rooms")
+
+
+@app.get("/api/mqtt")
+def get_mqtt() -> dict:
+    """Saved MQTT/Zigbee2MQTT ingestion settings (no broker connection here)."""
+    s = config.load_settings()
+    return {
+        "enabled": bool(s.get("mqtt_enabled", False)),
+        "host": s.get("mqtt_host", ""),
+        "port": s.get("mqtt_port", 1883),
+        "topic_prefix": s.get("mqtt_topic_prefix", mqtt_ingest.DEFAULT_PREFIX),
+        "rooms": s.get("mqtt_rooms", {}),
+        "paho_installed": _paho_available(),
+    }
+
+
+@app.post("/api/mqtt")
+def save_mqtt(payload: dict) -> dict:
+    """Persist MQTT settings. Body: {"mqtt_enabled": bool, "mqtt_host": str,
+    "mqtt_port": int, "mqtt_topic_prefix": str, "mqtt_rooms": {friendly_name: room}}."""
+    data = payload or {}
+    update: dict = {}
+    for key in MQTT_KEYS:
+        if key not in data:
+            continue
+        value = data[key]
+        if key == "mqtt_enabled":
+            update[key] = bool(value)
+        elif key == "mqtt_port":
+            try:
+                port = int(value)
+            except (TypeError, ValueError):
+                raise HTTPException(422, "mqtt_port must be an integer")
+            if not 1 <= port <= 65535:
+                raise HTTPException(422, "mqtt_port must be in 1..65535")
+            update[key] = port
+        elif key in ("mqtt_host", "mqtt_topic_prefix"):
+            if not isinstance(value, str):
+                raise HTTPException(422, f"{key} must be a string")
+            update[key] = value.strip()
+        elif key == "mqtt_rooms":
+            if not isinstance(value, dict) or not all(
+                isinstance(k, str) and isinstance(v, str) and v.strip() for k, v in value.items()
+            ):
+                raise HTTPException(422, "mqtt_rooms must be {friendly_name: room_name} (non-empty strings)")
+            update[key] = value
+    if not update:
+        raise HTTPException(422, "nothing to save: body has none of " + ", ".join(MQTT_KEYS))
+    config.save_settings(update)
+    return {"status": "ok", "saved": [k for k in update if k != "mqtt_rooms"] or ["mqtt_rooms"]}
+
+
+@app.post("/api/mqtt/ingest")
+def mqtt_ingest_manual(payload: dict) -> dict:
+    """Inject one Zigbee2MQTT message through the real pipeline (no broker).
+
+    Body: {"topic": "zigbee2mqtt/<Friendly Name>", "payload": "<json string or object>"}.
+    Uses the saved mqtt_rooms mapping; returns how many readings were stored.
+    """
+    data = payload or {}
+    topic, body = data.get("topic"), data.get("payload")
+    if not isinstance(topic, str) or not topic.strip():
+        raise HTTPException(422, 'body must be {"topic": str, "payload": json string or object}')
+    if isinstance(body, (dict, list)):
+        body = json.dumps(body, ensure_ascii=False)
+    if not isinstance(body, str):
+        raise HTTPException(422, "payload must be a JSON string or a JSON object")
+    saved = config.load_settings()
+    ingestor = mqtt_ingest.MqttIngestor(
+        get_cache(),
+        saved.get("mqtt_rooms", {}),
+        saved.get("mqtt_topic_prefix", mqtt_ingest.DEFAULT_PREFIX),
+    )
+    added = ingestor.handle(topic.strip(), body)
+    if added == 0:
+        raise HTTPException(422, "nothing ingested: check topic prefix and mqtt_rooms mapping")
+    return {"status": "ok", "added": added}
+
+
+def _paho_available() -> bool:
     try:
-        msg_id = report_pdf.send_email(cfg, to, pdf_bytes)
-    except Exception as exc:  # noqa: BLE001 — surface SMTP errors to the UI
-        raise HTTPException(502, f"SMTP error: {exc}")
-    return {"status": "ok", "to": to, "message_id": msg_id}
+        import paho.mqtt.client  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+@app.get("/api/compare")
+def compare_rooms(
+    metric: str = Query("temperature", pattern="^(temperature|humidity)$"),
+    days: int = Query(7, ge=1, le=365),
+) -> dict:
+    """Порівняння кімнат: денна серія + avg/min/max по кожній кімнаті.
+
+    Джерело даних для графіка «кімната vs кімната» (температура або вологість).
+    Кімнати без відповідного сенсора або без даних не потрапляють у відповідь.
+    """
+    cache = get_cache()
+    since = cache_mod.hours_ago_iso(days * 24)
+    out: dict[str, dict] = {}
+    sensor_key = "temp_entity" if metric == "temperature" else "humidity_entity"
+    for room, cfg in config.load_rooms().items():
+        if not cfg.get(sensor_key):
+            continue
+        points = cache.since(room, metric, since)
+        if not points:
+            continue
+        vals = [v for _, v in points]
+        daily: dict[str, list[float]] = {}
+        for ts, v in points:
+            daily.setdefault(ts[:10], []).append(v)
+        out[room] = {
+            "avg": round(sum(vals) / len(vals), 2),
+            "min": round(min(vals), 2),
+            "max": round(max(vals), 2),
+            "samples": len(vals),
+            "daily": [[d, round(sum(v) / len(v), 2)] for d, v in sorted(daily.items())],
+        }
+    return {"metric": metric, "days": days, "rooms": out}
 
 
 @app.get("/api/annotations")
@@ -540,6 +696,8 @@ def save_rooms_config(payload: dict) -> dict:
         if isinstance(cfg.get("humidity_min"), (int, float)) and isinstance(cfg.get("humidity_max"), (int, float)) \
                 and cfg["humidity_min"] >= cfg["humidity_max"]:
             raise HTTPException(422, f"room {room!r}: humidity_min must be below humidity_max")
+        if "floor" in cfg and not isinstance(cfg["floor"], str):
+            raise HTTPException(422, f"room {room!r}: floor must be a string (e.g. \"1st\")")
     path = config.save_rooms(rooms)
     return {"status": "ok", "rooms": rooms, "path": str(path)}
 
