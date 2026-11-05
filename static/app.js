@@ -3,6 +3,11 @@ const $ = (s) => document.querySelector(s);
 let timelineChart = null, seasonsChart = null;
 
 const api = (path) => fetch(path).then((r) => r.json());
+// Colors for Chart.js read from CSS variables, so charts follow the theme.
+const themeColors = () => {
+  const s = getComputedStyle(document.body);
+  return { fg: s.getPropertyValue("--fg").trim() || "#e6e1cf", grid: s.getPropertyValue("--border").trim() || "#22303c" };
+};
 
 function comfortClass(t, [min, max]) {
   if (t == null) return "";
@@ -77,8 +82,8 @@ async function loadTimeline() {
       datasets: [{ label: `${room} · ${metric}`, data: points.map(([, v]) => v), pointRadius: 0, borderWidth: 1.5, borderColor: "#4ecdc4", tension: 0.2 }],
     },
     options: {
-      scales: { y: { grid: { color: "#22303c" } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } },
-      plugins: { legend: { labels: { color: "#e6e1cf" } } },
+      scales: { y: { grid: { color: themeColors().grid } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } },
+      plugins: { legend: { labels: { color: themeColors().fg } } },
     },
     plugins: [
       {
@@ -196,7 +201,7 @@ async function loadSeasons() {
       labels: years,
       datasets: [{ label: `Середня ${metricName(data.metric)}, ${monthName(month)}`, data: years.map((y) => data.by_year[y]), backgroundColor: "#4ecdc4" }],
     },
-    options: { plugins: { legend: { labels: { color: "#e6e1cf" } } }, scales: { y: { grid: { color: "#22303c" } }, x: { grid: { display: false } } } },
+    options: { plugins: { legend: { labels: { color: themeColors().fg } } }, scales: { y: { grid: { color: themeColors().grid } }, x: { grid: { display: false } } } },
   });
 }
 
@@ -221,7 +226,7 @@ async function loadEnergy() {
       labels,
       datasets: [{ label: `kWh/день · ${room}`, data: data.daily.map(([, v]) => v), backgroundColor: "#e5c07b" }],
     },
-    options: { plugins: { legend: { labels: { color: "#e6e1cf" } } }, scales: { y: { beginAtZero: true, grid: { color: "#22303c" } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } } },
+    options: { plugins: { legend: { labels: { color: themeColors().fg } } }, scales: { y: { beginAtZero: true, grid: { color: themeColors().grid } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } } },
   });
 }
 
@@ -247,5 +252,22 @@ $("#en-price").addEventListener("change", () => {
 $("#en-price").value = localStorage.getItem("cc-energy-price") ?? "7.5";
 
 $("#se-month").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${monthName(i + 1)}</option>`).join("");
+
+// ---------- Theme toggle (dark/light, persisted in localStorage) ----------
+function applyTheme(t) {
+  document.body.classList.toggle("light", t === "light");
+  const btn = $("#theme-toggle");
+  if (btn) btn.textContent = t === "light" ? "🌙" : "☀️";
+  localStorage.setItem("cc-theme", t);
+}
+
+$("#theme-toggle").addEventListener("click", () => {
+  const next = document.body.classList.contains("light") ? "dark" : "light";
+  applyTheme(next);
+  // re-render the active view so Chart.js picks up the new colors
+  const active = document.querySelector("nav button.active");
+  if (active) ({ rooms: loadRooms, timeline: loadTimeline, heatmap: loadHeatmap, seasons: loadSeasons, energy: loadEnergy })[active.dataset.view]?.();
+});
+applyTheme(localStorage.getItem("cc-theme") || "dark");
 
 loadRooms();

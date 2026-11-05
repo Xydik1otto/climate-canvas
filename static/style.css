@@ -1,26 +1,28 @@
-:root { --bg:#0f1419; --card:#1a2129; --fg:#e6e1cf; --accent:#4ecdc4; --muted:#7a8a99; }
+:root { --bg:#0f1419; --card:#1a2129; --fg:#e6e1cf; --accent:#4ecdc4; --muted:#7a8a99; --border:#2a3642; --shadow:rgba(10,16,26,0.45); }
+body.light { --bg:#f4f1ea; --card:#ffffff; --fg:#22303c; --accent:#0f9b8e; --muted:#6b7a89; --border:#d8d2c4; --shadow:rgba(120,130,140,0.25); }
 * { box-sizing:border-box; }
 body { margin:0; font-family:system-ui,sans-serif; background:var(--bg); color:var(--fg); }
-header { display:flex; align-items:center; gap:16px; padding:10px 20px; border-bottom:1px solid #2a3642; }
+header { display:flex; align-items:center; gap:16px; padding:10px 20px; border-bottom:1px solid var(--border); }
 header h1 { font-size:1.1rem; margin:0; }
-nav button { background:var(--card); color:var(--fg); border:1px solid #2a3642; border-radius:6px; padding:6px 12px; margin-right:4px; cursor:pointer; }
+nav button, #theme-toggle { background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:6px 12px; margin-right:4px; cursor:pointer; }
 nav button.active { background:var(--accent); color:#0f1419; border-color:var(--accent); }
+#settings-link { text-decoration:none; font-size:1rem; margin-right:4px; }
 #mode-badge { margin-left:auto; font-size:.8rem; color:var(--muted); }
 main { padding:16px 20px; }
 .view { display:none; }
 .view.active { display:block; }
 .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px; }
-.room-card { background:var(--card); border:1px solid #2a3642; border-radius:10px; padding:14px; }
+.room-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px; }
 .room-card h3 { margin:0 0 8px; font-size:1rem; }
 .room-card .temp { font-size:1.8rem; font-weight:600; }
 .room-card .hum { color:var(--muted); }
 .comfort-ok { color:#7bd88f; } .comfort-cold { color:#61afef; } .comfort-hot { color:#e06c75; }
-.controls { display:flex; gap:8px; margin-bottom:10px; }
-.controls select { background:var(--card); color:var(--fg); border:1px solid #2a3642; border-radius:6px; padding:5px 8px; }
+.controls { display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap; }
+.controls select, .controls input { background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:5px 8px; }
 #heatmap { overflow-x:auto; }
 #hm-legend { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:.8rem; color:var(--muted); }
 .hint { font-size:.8rem; color:var(--muted); margin-top:6px; }
 #tl-annotations { margin-top:8px; font-size:.85rem; }
-#tl-annotations .ann { display:inline-flex; align-items:center; gap:6px; background:var(--card); border:1px solid #2a3642; border-radius:6px; padding:2px 8px; margin-right:8px; color:var(--fg); }
+#tl-annotations .ann { display:inline-flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:2px 8px; margin-right:8px; color:var(--fg); }
 .ann-del { background:none; border:none; color:#e06c75; cursor:pointer; padding:0 2px; }
 #energy-total { margin-bottom:8px; font-size:1rem; }
