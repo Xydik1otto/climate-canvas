@@ -41,6 +41,12 @@ def test_outdoor_endpoint_demo(client):
         assert -40.0 <= v <= 45.0
 
 
+def test_forecast_url_contains_hours():
+    url = openmeteo.forecast_url(50.45, 30.52, 48)
+    assert url.startswith("https://api.open-meteo.com/v1/forecast?")
+    assert "forecast_hours=48" in url and "hourly=temperature_2m" in url
+
+
 def test_outdoor_deterministic():
     from datetime import datetime, timezone
 
@@ -48,3 +54,19 @@ def test_outdoor_deterministic():
 
     ts = datetime(2026, 11, 5, 12, tzinfo=timezone.utc)
     assert demo_data.outdoor_hour(ts) == demo_data.outdoor_hour(ts)
+
+
+def test_forecast_endpoint_demo(client):
+    r = client.get("/api/forecast", params={"hours": 48})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["hours"] == 48
+    assert data["source"] == "demo"
+    assert len(data["points"]) == 48
+    for ts, v in data["points"]:
+        assert ts.endswith("+00:00")
+        assert -40.0 <= v <= 45.0
+
+
+def test_forecast_validates_hours(client):
+    assert client.get("/api/forecast", params={"hours": 3}).status_code == 422

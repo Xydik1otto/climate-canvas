@@ -65,10 +65,12 @@ function nightBands(points) {
 
 async function loadTimeline() {
   const room = $("#tl-room").value, metric = $("#tl-metric").value, days = $("#tl-days").value;
-  const [data, ann, outdoor] = await Promise.all([
+  const withForecast = metric === "temperature" && $("#tl-forecast").checked;
+  const [data, ann, outdoor, fc] = await Promise.all([
     api(`/api/timeline?room=${encodeURIComponent(room)}&metric=${metric}&days=${days}`),
     api(`/api/annotations?room=${encodeURIComponent(room)}&days=${days}`),
     metric === "temperature" ? api(`/api/outdoor?days=${days}`) : Promise.resolve(null),
+    withForecast ? api("/api/forecast?hours=48") : Promise.resolve(null),
   ]);
   const points = data.points;
   const annotations = ann.annotations || [];
@@ -93,17 +95,28 @@ async function loadTimeline() {
       loadTimeline();
     }));
   const labels = points.map(([ts]) => new Date(ts).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" }));
+  // Forecast 48h: labels continue after the history block; history datasets get nulls there.
+  let forecastValues = [], forecastLabels = [];
+  if (fc && fc.points.length) {
+    forecastLabels = fc.points.map(([ts]) => new Date(ts).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" }));
+    forecastValues = fc.points.map(([, v]) => v);
+  }
+  const allLabels = labels.concat(forecastLabels);
+  const historyNulls = Array(forecastLabels.length).fill(null);
+  const datasets = [
+    { label: `${room} · ${metric}`, data: points.map(([, v]) => v).concat(historyNulls), pointRadius: 0, borderWidth: 1.5, borderColor: "#4ecdc4", tension: 0.2, spanGaps: false },
+  ];
+  if (outdoorValues.length) {
+    datasets.push({ label: "Зовні (Open-Meteo)", data: outdoorValues.concat(historyNulls), pointRadius: 0, borderWidth: 1.5, borderColor: "#e5c07b", borderDash: [6, 4], tension: 0.2, spanGaps: false });
+  }
+  if (forecastValues.length) {
+    datasets.push({ label: "Прогноз 48 год", data: Array(points.length).fill(null).concat(forecastValues), pointRadius: 0, borderWidth: 1.5, borderColor: "#61afef", borderDash: [2, 3], tension: 0.2, spanGaps: false });
+  }
   const ctx = $("#timeline-chart");
   if (timelineChart) timelineChart.destroy();
   timelineChart = new Chart(ctx, {
     type: "line",
-    data: {
-      labels,
-      datasets: [
-        { label: `${room} · ${metric}`, data: points.map(([, v]) => v), pointRadius: 0, borderWidth: 1.5, borderColor: "#4ecdc4", tension: 0.2 },
-        ...(outdoorValues.length ? [{ label: "Зовні (Open-Meteo)", data: outdoorValues, pointRadius: 0, borderWidth: 1.5, borderColor: "#e5c07b", borderDash: [6, 4], tension: 0.2 }] : []),
-      ],
-    },
+    data: { labels: allLabels, datasets },
     options: {
       scales: { y: { grid: { color: themeColors().grid } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } },
       plugins: { legend: { labels: { color: themeColors().fg } } },
@@ -269,6 +282,7 @@ document.querySelectorAll("nav button").forEach((btn) => {
   });
 });
 ["#tl-room", "#tl-metric", "#tl-days"].forEach((s) => $(s).addEventListener("change", loadTimeline));
+$("#tl-forecast").addEventListener("change", loadTimeline);
 ["#hm-room", "#hm-metric", "#hm-days"].forEach((s) => $(s).addEventListener("change", loadHeatmap));
 ["#se-room", "#se-month"].forEach((s) => $(s).addEventListener("change", loadSeasons));
 ["#en-room", "#en-days"].forEach((s) => $(s).addEventListener("change", loadEnergy));

@@ -204,6 +204,28 @@ def _outdoor_cached(days: int) -> tuple[list, str]:
     return points, "open-meteo"
 
 
+@app.get("/api/forecast")
+def forecast(hours: int = Query(48, ge=6, le=168)) -> dict:
+    """Outdoor temperature forecast (Open-Meteo, free/no key) for the next `hours` hours."""
+    if config.DEMO:
+        start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        points = []
+        ts = start
+        for _ in range(hours):
+            points.append([ts.strftime("%Y-%m-%dT%H:00:00+00:00"), demo_data.outdoor_hour(ts)])
+            ts += timedelta(hours=1)
+        source = "demo"
+    else:
+        points = [[ts, v] for ts, v in openmeteo.fetch_forecast(hours)]
+        source = "open-meteo"
+    return {
+        "hours": hours,
+        "points": points,
+        "source": source,
+        "location": [config.LATITUDE, config.LONGITUDE],
+    }
+
+
 @app.get("/api/annotations")
 def list_annotations(
     room: str = Query(...),
