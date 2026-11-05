@@ -26,3 +26,5 @@ main { padding:16px 20px; }
 #tl-annotations .ann { display:inline-flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:2px 8px; margin-right:8px; color:var(--fg); }
 .ann-del { background:none; border:none; color:#e06c75; cursor:pointer; padding:0 2px; }
 #energy-total { margin-bottom:8px; font-size:1rem; }
+.mold-risk { font-size:.85rem; margin-top:2px; }
+.mold-low { color:#7bd88f; } .mold-medium { color:#e5c07b; } .mold-high { color:#e06c75; }

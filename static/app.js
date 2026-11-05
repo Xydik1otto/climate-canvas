@@ -16,6 +16,13 @@ function comfortClass(t, [min, max]) {
   return "comfort-ok";
 }
 
+// Mold-risk badge on room cards ("low" | "medium" | "high" from the API).
+function moldRiskClass(risk) {
+  if (!risk) return "";
+  const label = { low: "низький", medium: "середній", high: "високий" }[risk] || risk;
+  return `<div class="mold-risk mold-${risk}" title="RH ≥ 70% при T < 20°C — високий ризик">⚠️ Цвіль: ${label}</div>`;
+}
+
 // ---------- Rooms ----------
 async function loadRooms() {
   const data = await api("/api/rooms");
@@ -28,9 +35,11 @@ async function loadRooms() {
     card.className = "room-card";
     const co2 = st.co2 != null ? `<div class="hum">🫁 ${st.co2} ppm</div>` : "";
     const voc = st.voc != null ? `<div class="hum">🧪 ${st.voc} ppb VOC</div>` : "";
+    const dew = st.dew_point != null ? `<div class="hum">🌡 Точка роси: ${st.dew_point}°C</div>` : "";
+    const risk = moldRiskClass(st.mold_risk);
     card.innerHTML = `<h3>${room}</h3>
       <div class="temp ${cls}">${st.temperature ?? "—"}°C</div>
-      <div class="hum">💧 ${st.humidity ?? "—"}% · комфорт ${st.comfort[0]}–${st.comfort[1]}°C</div>${co2}${voc}`;
+      <div class="hum">💧 ${st.humidity ?? "—"}% · комфорт ${st.comfort[0]}–${st.comfort[1]}°C</div>${dew}${risk}${co2}${voc}`;
     grid.appendChild(card);
   }
   const names = Object.keys(data.rooms);
@@ -164,12 +173,14 @@ const humColor = (v) => {
   return `rgb(${Math.round(160 - 110 * f)},${Math.round(150 + 30 * f)},${Math.round(160 + 95 * f)})`;
 };
 
+const riskColor = (v) => ({ 0: "#3f9d5f", 1: "#e5c07b", 2: "#e06c75" }[v] || "#1a2129");
+
 async function loadHeatmap() {
   const room = $("#hm-room").value, metric = $("#hm-metric").value, days = $("#hm-days").value;
   const data = await api(`/api/heatmap?room=${encodeURIComponent(room)}&metric=${metric}&days=${days}`);
   const cell = 14, labelW = 62;
-  const color = metric === "humidity" ? humColor : tempColor;
-  const unit = metric === "humidity" ? "%" : "°C";
+  const color = metric === "mold_risk" ? riskColor : (metric === "humidity" ? humColor : tempColor);
+  const unit = metric === "humidity" ? "%" : (metric === "mold_risk" ? "" : "°C");
   const w = labelW + 24 * cell, h = 20 + data.days.length * cell;
   let svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">`;
   data.hours.forEach((hr) => { svg += `<text x="${labelW + hr * cell + 3}" y="12" font-size="9" fill="#7a8a99">${hr}</text>`; });
@@ -184,6 +195,8 @@ async function loadHeatmap() {
   $("#heatmap").innerHTML = svg;
   const legend = metric === "humidity"
     ? `Сухо <span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(220,180,120), rgb(50,180,255))"></span> Вологo · ${data.days.length} днів`
+    : metric === "mold_risk"
+    ? `Ризик цвілі: <span style="color:#3f9d5f">низький</span> · <span style="color:#e5c07b">середній</span> · <span style="color:#e06c75">високий</span> · ${data.days.length} днів`
     : `Холодно <span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(40,120,200), rgb(240,60,50))"></span> Спекотно · ${data.days.length} днів`;
   $("#hm-legend").innerHTML = legend;
 }

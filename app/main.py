@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import cache as cache_mod
-from . import config, demo_data, discover, ha_client, sync
+from . import climate, config, demo_data, discover, ha_client, sync
 
 _cache: cache_mod.Cache | None = None
 _pull_thread: threading.Thread | None = None
@@ -72,10 +72,21 @@ def rooms() -> dict:
     """Current temperature/humidity per room with comfort zones."""
     rooms_cfg = config.load_rooms()
     out = {}
+    def enrich(room: str, t, h, extra: dict) -> dict:
+        out = {**extra, "comfort": [config.COMFORT_MIN, config.COMFORT_MAX]}
+        if t is not None and h is not None:
+            out["dew_point"] = climate.dew_point(t, h)
+            out["mold_risk"] = climate.mold_risk(t, h)
+        else:
+            out["dew_point"] = None
+            out["mold_risk"] = None
+        return out
+
     if config.DEMO:
         now = datetime.now(timezone.utc)
         for room in rooms_cfg:
-            out[room] = {**demo_data.current_state(room, now), "comfort": [config.COMFORT_MIN, config.COMFORT_MAX]}
+            st = demo_data.current_state(room, now)
+            out[room] = enrich(room, st.get("temperature"), st.get("humidity"), st)
     else:
         try:
             states = ha_client.fetch_states()
@@ -86,13 +97,7 @@ def rooms() -> dict:
             h = (states.get(cfg["humidity_entity"]) or {}).get("humidity")
             c = (states.get(cfg.get("co2_entity") or "") or {}).get("co2")
             v = (states.get(cfg.get("voc_entity") or "") or {}).get("voc")
-            out[room] = {
-                "temperature": t,
-                "humidity": h,
-                "co2": c,
-                "voc": v,
-                "comfort": [config.COMFORT_MIN, config.COMFORT_MAX],
-            }
+            out[room] = enrich(room, t, h, {"temperature": t, "humidity": h, "co2": c, "voc": v})
     return {"rooms": out, "demo": config.DEMO}
 
 
@@ -110,12 +115,37 @@ def timeline(
     return {"room": room, "metric": metric, "days": days, "points": series}
 
 
+HEAT_METRICS = r"^(temperature|humidity|co2|voc|dew_point|mold_risk)$"
+
+
+def _dew_or_risk_points(cache: cache_mod.Cache, room: str, since: str, metric: str) -> list[tuple[str, float]]:
+    """Join cached temperature+humidity hourly means and derive dew point / mold risk."""
+    tpts = cache_mod.hourly_mean(cache.since(room, "temperature", since))
+    hpts = dict(cache_mod.hourly_mean(cache.since(room, "humidity", since)))
+    out = []
+    for ts, t in tpts:
+        h = hpts.get(ts)
+        if h is None:
+            continue
+        if metric == "dew_point":
+            out.append((ts, climate.dew_point(t, h)))
+        else:
+            out.append((ts, float(climate.RISK_LEVEL[climate.mold_risk(t, h)])))
+    return out
+
+
 @app.get("/api/heatmap")
 def heatmap(
     room: str = Query(...),
-    metric: str = Query("temperature", pattern="^(temperature|humidity|co2|voc)$"),
+    metric: str = Query("temperature", pattern=HEAT_METRICS),
     days: int = Query(90, ge=1, le=365),
 ) -> dict:
+    if metric in ("dew_point", "mold_risk"):
+        _room_metric(room, "temperature")  # validates room name
+        _room_metric(room, "humidity")
+        cache = get_cache()
+        since = cache_mod.hours_ago_iso(days * 24)
+        return cache_mod.heatmap_matrix(_dew_or_risk_points(cache, room, since, metric), days)
     _room_metric(room, metric)  # validates room name
     cache = get_cache()
     since = cache_mod.hours_ago_iso(days * 24)
