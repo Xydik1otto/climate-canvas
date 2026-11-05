@@ -83,7 +83,7 @@ async function loadTimeline() {
   });
 }
 
-// ---------- Heatmap (SVG days × hours) ----------
+// ---------- Heatmap (SVG days × hours, temperature or humidity) ----------
 const tempColor = (v) => {
   if (v == null) return "#1a2129";
   const t = Math.max(10, Math.min(32, v)); // clamp 10–32 °C
@@ -91,11 +91,21 @@ const tempColor = (v) => {
   const r = Math.round(40 + 200 * f), g = Math.round(120 - 60 * f), b = Math.round(200 - 150 * f);
   return `rgb(${r},${g},${b})`;
 };
+// Humidity scale: 25% (dry, sandy) → 40% comfortable → 70%+ (wet, blue).
+const humColor = (v) => {
+  if (v == null) return "#1a2129";
+  const h = Math.max(20, Math.min(90, v));
+  if (h <= 40) { const f = (h - 20) / 20; return `rgb(${Math.round(220 - 60 * f)},${Math.round(180 - 30 * f)},${Math.round(120 + 40 * f)})`; }
+  const f = Math.min(1, (h - 40) / 40);
+  return `rgb(${Math.round(160 - 110 * f)},${Math.round(150 + 30 * f)},${Math.round(160 + 95 * f)})`;
+};
 
 async function loadHeatmap() {
-  const room = $("#hm-room").value, days = $("#hm-days").value;
-  const data = await api(`/api/heatmap?room=${encodeURIComponent(room)}&days=${days}`);
+  const room = $("#hm-room").value, metric = $("#hm-metric").value, days = $("#hm-days").value;
+  const data = await api(`/api/heatmap?room=${encodeURIComponent(room)}&metric=${metric}&days=${days}`);
   const cell = 14, labelW = 62;
+  const color = metric === "humidity" ? humColor : tempColor;
+  const unit = metric === "humidity" ? "%" : "°C";
   const w = labelW + 24 * cell, h = 20 + data.days.length * cell;
   let svg = `<svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">`;
   data.hours.forEach((hr) => { svg += `<text x="${labelW + hr * cell + 3}" y="12" font-size="9" fill="#7a8a99">${hr}</text>`; });
@@ -103,12 +113,15 @@ async function loadHeatmap() {
     const y = 18 + i * cell;
     svg += `<text x="0" y="${y + 11}" font-size="9" fill="#7a8a99">${d}</text>`;
     data.values[i].forEach((v, hr) => {
-      svg += `<rect x="${labelW + hr * cell}" y="${y}" width="${cell - 1}" height="${cell - 1}" fill="${tempColor(v)}"><title>${d} ${hr}:00 — ${v ?? "немає даних"}°C</title></rect>`;
+      svg += `<rect x="${labelW + hr * cell}" y="${y}" width="${cell - 1}" height="${cell - 1}" fill="${color(v)}"><title>${d} ${hr}:00 — ${v ?? "немає даних"}${unit}</title></rect>`;
     });
   });
   svg += "</svg>";
   $("#heatmap").innerHTML = svg;
-  $("#hm-legend").innerHTML = `Холодно <span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(40,120,200), rgb(240,60,50))"></span> Спекотно · ${data.days.length} днів`;
+  const legend = metric === "humidity"
+    ? `Сухо <span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(220,180,120), rgb(50,180,255))"></span> Вологo · ${data.days.length} днів`
+    : `Холодно <span style="display:inline-block;width:60px;height:10px;background:linear-gradient(to right, rgb(40,120,200), rgb(240,60,50))"></span> Спекотно · ${data.days.length} днів`;
+  $("#hm-legend").innerHTML = legend;
 }
 
 // ---------- Seasons ----------
@@ -143,7 +156,7 @@ document.querySelectorAll("nav button").forEach((btn) => {
   });
 });
 ["#tl-room", "#tl-metric", "#tl-days"].forEach((s) => $(s).addEventListener("change", loadTimeline));
-["#hm-room", "#hm-days"].forEach((s) => $(s).addEventListener("change", loadHeatmap));
+["#hm-room", "#hm-metric", "#hm-days"].forEach((s) => $(s).addEventListener("change", loadHeatmap));
 ["#se-room", "#se-month"].forEach((s) => $(s).addEventListener("change", loadSeasons));
 
 $("#se-month").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${monthName(i + 1)}</option>`).join("");

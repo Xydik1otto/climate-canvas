@@ -19,3 +19,18 @@ def states_fixture():
 @pytest.fixture
 def history_fixture():
     return load_fixture("history_period")
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    """TestClient in demo mode with an isolated temp database."""
+    from fastapi.testclient import TestClient
+
+    from app import config, main
+
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "cache.db")
+    monkeypatch.setattr(config, "DEMO", True)
+    main._cache = None
+    with TestClient(main.app) as c:
+        yield c
+    main._cache = None

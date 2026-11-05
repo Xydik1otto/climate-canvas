@@ -1,19 +1,22 @@
 """FastAPI application and JSON API for the dashboard."""
 from __future__ import annotations
 
+import csv
+import io
+import threading
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import cache as cache_mod
-from . import config, demo_data, sync
-
-app = FastAPI(title="climate-canvas", version="0.1.0")
+from . import config, demo_data, discover, ha_client, sync
 
 _cache: cache_mod.Cache | None = None
+_pull_thread: threading.Thread | None = None
 
 
 def get_cache() -> cache_mod.Cache:
@@ -27,10 +30,16 @@ def get_cache() -> cache_mod.Cache:
     return _cache
 
 
-@app.on_event("startup")
-def startup() -> None:
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Startup/shutdown via lifespan (replaces deprecated on_event)."""
+    global _pull_thread
     get_cache()
-    sync.start_hourly_pull(_cache, config.load_rooms)
+    _pull_thread = sync.start_hourly_pull(_cache, config.load_rooms)
+    yield
+
+
+app = FastAPI(title="climate-canvas", version="0.1.0-alpha", lifespan=lifespan)
 
 
 @app.get("/api/health")
@@ -111,12 +120,74 @@ def seasons(
     return {"room": room, "metric": metric, "month": month, "by_year": cache_mod.seasonal_means(points)}
 
 
+@app.get("/api/discover")
+def discover_entities() -> dict:
+    """List climate sensors from HA grouped by area + a suggested room mapping."""
+    if config.DEMO:
+        raw = discover.demo_states(config.load_rooms())
+    else:
+        raw = ha_client.fetch_states_raw()
+    sensors = discover.parse_sensors(raw)
+    return {
+        "demo": config.DEMO,
+        "sensors": sensors,
+        "suggested_rooms": discover.suggest_mapping(sensors, config.load_rooms()),
+        "current_rooms": config.load_rooms(),
+    }
+
+
+@app.post("/api/rooms/config")
+def save_rooms_config(payload: dict) -> dict:
+    """Persist a rooms mapping (from the discovery settings page) to rooms.json."""
+    rooms = (payload or {}).get("rooms")
+    if not isinstance(rooms, dict) or not rooms:
+        raise HTTPException(422, "body must be {\"rooms\": {...}} with at least one room")
+    for room, cfg in rooms.items():
+        if not isinstance(cfg, dict):
+            raise HTTPException(422, f"room {room!r} must be an object")
+        if not isinstance(cfg.get("temp_entity"), str) or not isinstance(cfg.get("humidity_entity"), str):
+            raise HTTPException(422, f"room {room!r} needs string temp_entity and humidity_entity")
+    path = config.save_rooms(rooms)
+    return {"status": "ok", "rooms": rooms, "path": str(path)}
+
+
+@app.get("/api/export/csv")
+def export_csv(
+    room: str = Query(...),
+    metric: str = Query("temperature", pattern="^(temperature|humidity)$"),
+    days: int = Query(7, ge=1, le=365),
+) -> StreamingResponse:
+    """Download raw cached readings as CSV (Excel/LibreOffice friendly)."""
+    _room_metric(room, metric)  # validates room name
+    cache = get_cache()
+    since = cache_mod.hours_ago_iso(days * 24)
+    points = cache.since(room, metric, since)
+
+    buf = io.StringIO(newline="")
+    writer = csv.writer(buf)
+    writer.writerow(["ts", metric])
+    for ts, value in points:
+        writer.writerow([ts, value])
+    buf.seek(0)
+    filename = f"{room.lower().replace(' ', '_')}_{metric}_{days}d.csv"
+    return StreamingResponse(
+        buf,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/settings")
+def settings_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "settings.html")
 
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

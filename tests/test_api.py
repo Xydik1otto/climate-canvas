@@ -1,18 +1,5 @@
 """End-to-end API tests in demo mode (no Home Assistant needed)."""
-import pytest
-from fastapi.testclient import TestClient
-
-from app import config, main
-
-
-@pytest.fixture
-def client(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "DB_PATH", tmp_path / "cache.db")
-    monkeypatch.setattr(config, "DEMO", True)
-    main._cache = None
-    with TestClient(main.app) as c:
-        yield c
-    main._cache = None
+from app import config
 
 
 def test_health(client):

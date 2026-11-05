@@ -31,3 +31,10 @@ def load_rooms(path: Path | None = None) -> dict:
     if p.exists():
         return json.loads(p.read_text(encoding="utf-8"))
     return DEFAULT_ROOMS
+
+
+def save_rooms(rooms: dict, path: Path | None = None) -> Path:
+    """Persist a rooms mapping to rooms.json (used by the discovery UI)."""
+    p = path or ROOMS_CONFIG
+    p.write_text(json.dumps(rooms, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return p

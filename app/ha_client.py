@@ -89,6 +89,14 @@ def fetch_states(timeout: float = 10.0) -> dict[str, dict[str, float | None]]:
     return parse_states(resp.json())
 
 
+def fetch_states_raw(timeout: float = 10.0) -> list[dict[str, Any]]:
+    """Fetch the full /api/states payload (used by sensor auto-discovery)."""
+    headers = {"Authorization": f"Bearer {config.HASS_TOKEN}"}
+    resp = httpx.get(f"{config.HASS_URL}/states", headers=headers, timeout=timeout)
+    resp.raise_for_status()
+    return resp.json()
+
+
 def fetch_history(entity_ids: list[str], hours: int = 24, timeout: float = 30.0) -> list[dict[str, Any]]:
     """Fetch recent history for the given entities from HA."""
     headers = {"Authorization": f"Bearer {config.HASS_TOKEN}"}

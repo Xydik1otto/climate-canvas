@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>climate-canvas — налаштування сенсорів</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  table { border-collapse: collapse; width: 100%; max-width: 900px; margin-bottom: 16px; }
+  th, td { border: 1px solid #2a3642; padding: 6px 10px; text-align: left; font-size: .9rem; }
+  th { background: var(--card); }
+  input { background: var(--card); color: var(--fg); border: 1px solid #2a3642; border-radius: 6px; padding: 4px 8px; width: 100%; }
+  .ok { color: #7bd88f; } .err { color: #e06c75; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ Налаштування сенсорів</h1>
+  <a href="/">← До дашборда</a>
+  <span id="mode-badge"></span>
+</header>
+<main>
+  <h2>Знайдені сенсори</h2>
+  <table id="sensors-table">
+    <thead><tr><th>Area</th><th>Entity</th><th>Назва</th><th>Метрика</th><th>Значення</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h2>Запропоноване відображення кімнат</h2>
+  <p>Перевірте/відредагуйте відповідність сенсорів і збережіть у <code>rooms.json</code>.</p>
+  <table id="mapping-table">
+    <thead><tr><th>Кімната</th><th>temp_entity</th><th>humidity_entity</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <button id="save-btn">💾 Зберегти rooms.json</button>
+  <span id="save-status"></span>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+let suggested = {};
+
+async function load() {
+  const data = await fetch("/api/discover").then((r) => r.json());
+  $("#mode-badge").textContent = data.demo ? "demo mode" : "Home Assistant";
+  const tbody = $("#sensors-table tbody");
+  tbody.innerHTML = (data.sensors || []).map((s) =>
+    `<tr><td>${s.area}</td><td>${s.entity_id}</td><td>${s.name}</td><td>${s.metric}</td><td>${s.value ?? "—"}</td></tr>`
+  ).join("") || "<tr><td colspan='5'>Сенсорів не знайдено</td></tr>";
+  suggested = data.suggested_rooms || {};
+  renderMapping();
+}
+
+function renderMapping() {
+  const tbody = $("#mapping-table tbody");
+  tbody.innerHTML = Object.entries(suggested).map(([room, cfg]) =>
+    `<tr>
+      <td><input data-room="${room}" data-field="name" value="${room}"></td>
+      <td><input data-room="${room}" data-field="temp_entity" value="${cfg.temp_entity ?? ""}"></td>
+      <td><input data-room="${room}" data-field="humidity_entity" value="${cfg.humidity_entity ?? ""}"></td>
+    </tr>`
+  ).join("") || "<tr><td colspan='3'>Немає пропозицій</td></tr>";
+}
+
+$("#mapping-table").addEventListener("change", (e) => {
+  const el = e.target;
+  if (el.dataset.field === "name") {
+    const old = el.dataset.room;
+    suggested[el.value] = suggested[old];
+    delete suggested[old];
+    el.dataset.room = el.value;
+  } else {
+    suggested[el.dataset.room][el.dataset.field] = el.value;
+  }
+});
+
+$("#save-btn").addEventListener("click", async () => {
+  const rooms = {};
+  for (const [room, cfg] of Object.entries(suggested)) {
+    if (cfg.temp_entity && cfg.humidity_entity) rooms[room] = cfg;
+  }
+  const r = await fetch("/api/rooms/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rooms }),
+  });
+  const body = await r.json();
+  $("#save-status").textContent = r.ok ? `✅ збережено: ${body.path}` : `❌ ${body.detail ?? "помилка"}`;
+  $("#save-status").className = r.ok ? "ok" : "err";
+});
+
+load();
+</script>
+</body>
+</html>

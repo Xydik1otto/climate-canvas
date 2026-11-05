@@ -15,6 +15,7 @@
     <button data-view="timeline">Таймлайн</button>
     <button data-view="heatmap">Теплова мапа</button>
     <button data-view="seasons">Сезони</button>
+    <a href="/settings" id="settings-link" title="Налаштування сенсорів">⚙️</a>
   </nav>
   <span id="mode-badge"></span>
 </header>
@@ -43,6 +44,10 @@
   <section id="view-heatmap" class="view">
     <div class="controls">
       <select id="hm-room"></select>
+      <select id="hm-metric">
+        <option value="temperature">Температура</option>
+        <option value="humidity">Вологість</option>
+      </select>
       <select id="hm-days">
         <option value="30">30 днів</option>
         <option value="90" selected>90 днів</option>

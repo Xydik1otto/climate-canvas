@@ -1,0 +1,10 @@
+[
+  {"entity_id": "sensor.living_room_temp", "state": "22.1", "attributes": {"unit_of_measurement": "°C", "friendly_name": "Living Room Temperature", "area_id": "living_room"}},
+  {"entity_id": "sensor.living_room_hum", "state": "46.5", "attributes": {"unit_of_measurement": "%", "friendly_name": "Living Room Humidity", "area_id": "living_room"}},
+  {"entity_id": "sensor.bedroom_temp", "state": "19.4", "attributes": {"unit_of_measurement": "°C", "friendly_name": "Bedroom Temperature", "area_id": "bedroom"}},
+  {"entity_id": "sensor.office_climate", "state": "23.9", "attributes": {"unit_of_measurement": "°C", "friendly_name": "Office Temperature"}},
+  {"entity_id": "sensor.attic_hum", "state": "55.0", "attributes": {"unit_of_measurement": "%", "friendly_name": "Attic Humidity", "area_id": "attic"}},
+  {"entity_id": "sensor.kitchen_power", "state": "150.0", "attributes": {"unit_of_measurement": "W", "friendly_name": "Kitchen Power"}},
+  {"entity_id": "binary_sensor.door", "state": "off", "attributes": {}},
+  {"entity_id": "sensor.broken", "state": "unavailable", "attributes": {"unit_of_measurement": "°C", "friendly_name": "Broken Sensor", "area_id": "garage"}}
+]
