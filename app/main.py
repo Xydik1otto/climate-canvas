@@ -561,6 +561,40 @@ def _paho_available() -> bool:
         return False
 
 
+@app.get("/api/compare")
+def compare_rooms(
+    metric: str = Query("temperature", pattern="^(temperature|humidity)$"),
+    days: int = Query(7, ge=1, le=365),
+) -> dict:
+    """Порівняння кімнат: денна серія + avg/min/max по кожній кімнаті.
+
+    Джерело даних для графіка «кімната vs кімната» (температура або вологість).
+    Кімнати без відповідного сенсора або без даних не потрапляють у відповідь.
+    """
+    cache = get_cache()
+    since = cache_mod.hours_ago_iso(days * 24)
+    out: dict[str, dict] = {}
+    sensor_key = "temp_entity" if metric == "temperature" else "humidity_entity"
+    for room, cfg in config.load_rooms().items():
+        if not cfg.get(sensor_key):
+            continue
+        points = cache.since(room, metric, since)
+        if not points:
+            continue
+        vals = [v for _, v in points]
+        daily: dict[str, list[float]] = {}
+        for ts, v in points:
+            daily.setdefault(ts[:10], []).append(v)
+        out[room] = {
+            "avg": round(sum(vals) / len(vals), 2),
+            "min": round(min(vals), 2),
+            "max": round(max(vals), 2),
+            "samples": len(vals),
+            "daily": [[d, round(sum(v) / len(v), 2)] for d, v in sorted(daily.items())],
+        }
+    return {"metric": metric, "days": days, "rooms": out}
+
+
 @app.get("/api/annotations")
 def list_annotations(
     room: str = Query(...),
