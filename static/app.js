@@ -49,8 +49,22 @@ function nightBands(points) {
 
 async function loadTimeline() {
   const room = $("#tl-room").value, metric = $("#tl-metric").value, days = $("#tl-days").value;
-  const data = await api(`/api/timeline?room=${encodeURIComponent(room)}&metric=${metric}&days=${days}`);
+  const [data, ann] = await Promise.all([
+    api(`/api/timeline?room=${encodeURIComponent(room)}&metric=${metric}&days=${days}`),
+    api(`/api/annotations?room=${encodeURIComponent(room)}&days=${days}`),
+  ]);
   const points = data.points;
+  const annotations = ann.annotations || [];
+  $("#tl-annotations").innerHTML = annotations.length
+    ? "Мітки: " + annotations.map((a) =>
+        `<span class="ann"><b>${a.label}</b> <small>${a.ts.slice(0, 16).replace("T", " ")}</small>` +
+        `<button data-id="${a.id}" class="ann-del" title="видалити">✕</button></span>`).join(" ")
+    : "";
+  $("#tl-annotations").querySelectorAll(".ann-del").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      await fetch(`/api/annotations/${btn.dataset.id}`, { method: "DELETE" });
+      loadTimeline();
+    }));
   const labels = points.map(([ts]) => new Date(ts).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" }));
   const ctx = $("#timeline-chart");
   if (timelineChart) timelineChart.destroy();
@@ -64,23 +78,66 @@ async function loadTimeline() {
       scales: { y: { grid: { color: "#22303c" } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } },
       plugins: { legend: { labels: { color: "#e6e1cf" } } },
     },
-    plugins: [{
-      id: "nightShading",
-      beforeDatasetsDraw(chart, args, opts) {
-        const { ctx, chartArea, scales: { x } } = chart;
-        if (!chartArea) return;
-        const bands = nightBands(points);
-        ctx.save();
-        ctx.fillStyle = "rgba(10,16,26,0.45)";
-        for (const [a, b] of bands) {
-          const x1 = x.getPixelForValue(labels.indexOf(new Date(a).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" })));
-          const x2 = x.getPixelForValue(labels.indexOf(new Date(b).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" })));
-          if (x2 > x1) ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
-        }
-        ctx.restore();
+    plugins: [
+      {
+        id: "nightShading",
+        beforeDatasetsDraw(chart, args, opts) {
+          const { ctx, chartArea, scales: { x } } = chart;
+          if (!chartArea) return;
+          const bands = nightBands(points);
+          ctx.save();
+          ctx.fillStyle = "rgba(10,16,26,0.45)";
+          for (const [a, b] of bands) {
+            const x1 = x.getPixelForValue(labels.indexOf(new Date(a).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" })));
+            const x2 = x.getPixelForValue(labels.indexOf(new Date(b).toLocaleString("uk-UA", { day: "2-digit", month: "2-digit", hour: "2-digit" })));
+            if (x2 > x1) ctx.fillRect(x1, chartArea.top, x2 - x1, chartArea.bottom - chartArea.top);
+          }
+          ctx.restore();
+        },
       },
-    }],
+      {
+        id: "annotationLines",
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea, scales: { x } } = chart;
+          if (!chartArea || !annotations.length) return;
+          ctx.save();
+          ctx.strokeStyle = "#e5c07b";
+          ctx.setLineDash([4, 3]);
+          ctx.font = "10px system-ui";
+          for (const a of annotations) {
+            // nearest hourly bucket to the annotation timestamp
+            let idx = points.findIndex(([ts]) => new Date(ts) >= new Date(a.ts));
+            if (idx < 0) idx = points.length - 1;
+            if (idx < 0) continue;
+            const px = x.getPixelForValue(idx);
+            if (px < chartArea.left || px > chartArea.right) continue;
+            ctx.beginPath();
+            ctx.moveTo(px, chartArea.top);
+            ctx.lineTo(px, chartArea.bottom);
+            ctx.stroke();
+            ctx.fillStyle = "#e5c07b";
+            ctx.fillText(a.label, px + 2, chartArea.top + 10);
+          }
+          ctx.restore();
+        },
+      },
+    ],
   });
+  // Click on the chart → add an annotation at that timestamp.
+  ctx.onclick = async (evt) => {
+    if (!timelineChart) return;
+    const px = evt.x != null ? evt.x : evt.offsetX;
+    const idx = Math.round(timelineChart.scales.x.getValueForPixel(px));
+    if (idx == null || idx < 0 || idx >= points.length) return;
+    const label = prompt("Мітка (напр. «відкрито вікно»):");
+    if (!label || !label.trim()) return;
+    await fetch("/api/annotations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room, ts: points[idx][0], label: label.trim() }),
+    });
+    loadTimeline();
+  };
 }
 
 // ---------- Heatmap (SVG days × hours, temperature or humidity) ----------

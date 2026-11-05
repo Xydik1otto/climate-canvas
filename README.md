@@ -48,6 +48,14 @@ Home Assistant чудово збирає дані, але погано їх по
 - У `rooms.json` додайте ключ `"energy_entity": "sensor.xxx_energy"` для кімнат
   з лічильником (Shelly/ESPHome/Deye тощо).
 
+### Мітки на таймлайні (v0.2)
+
+- **Alerts/annotations** — клік по графіку таймлайна створює мітку («відкрито вікно»,
+  «відпустка», «новий термостат»); зберігається в SQLite (`annotations`), малюється
+  вертикальною пунктирною лінією з підписом на графіку.
+- Список міток під графіком з кнопкою видалення.
+- API: `GET/POST /api/annotations`, `DELETE /api/annotations/{id}`.
+
 ## Джерела даних
 
 - **Home Assistant REST API**: `/api/states` та `/api/history/period`.

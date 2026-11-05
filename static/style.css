@@ -19,3 +19,8 @@ main { padding:16px 20px; }
 .controls select { background:var(--card); color:var(--fg); border:1px solid #2a3642; border-radius:6px; padding:5px 8px; }
 #heatmap { overflow-x:auto; }
 #hm-legend { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:.8rem; color:var(--muted); }
+.hint { font-size:.8rem; color:var(--muted); margin-top:6px; }
+#tl-annotations { margin-top:8px; font-size:.85rem; }
+#tl-annotations .ann { display:inline-flex; align-items:center; gap:6px; background:var(--card); border:1px solid #2a3642; border-radius:6px; padding:2px 8px; margin-right:8px; color:var(--fg); }
+.ann-del { background:none; border:none; color:#e06c75; cursor:pointer; padding:0 2px; }
+#energy-total { margin-bottom:8px; font-size:1rem; }

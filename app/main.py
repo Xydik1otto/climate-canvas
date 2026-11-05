@@ -132,6 +132,47 @@ def seasons(
     return {"room": room, "metric": metric, "month": month, "by_year": cache_mod.seasonal_means(points)}
 
 
+@app.get("/api/annotations")
+def list_annotations(
+    room: str = Query(...),
+    days: int = Query(30, ge=1, le=365),
+) -> dict:
+    """User markers (window opened, vacation, ...) for the timeline."""
+    if room not in config.load_rooms():
+        raise HTTPException(404, f"unknown room: {room}")
+    cache = get_cache()
+    since = cache_mod.hours_ago_iso(days * 24)
+    items = [{"id": i, "ts": ts, "label": label} for i, ts, label in cache.annotations_since(room, since)]
+    return {"room": room, "annotations": items}
+
+
+@app.post("/api/annotations")
+def create_annotation(payload: dict) -> dict:
+    """Create an annotation: {"room": str, "ts": ISO-8601, "label": str}."""
+    room = (payload or {}).get("room")
+    ts = (payload or {}).get("ts")
+    label = (payload or {}).get("label")
+    if not isinstance(room, str) or not isinstance(ts, str) or not isinstance(label, str) or not label.strip():
+        raise HTTPException(422, "body must be {\"room\": str, \"ts\": ISO-8601, \"label\": str}")
+    if room not in config.load_rooms():
+        raise HTTPException(404, f"unknown room: {room}")
+    try:
+        datetime.fromisoformat(ts)
+    except ValueError:
+        raise HTTPException(422, "ts must be an ISO-8601 timestamp")
+    cache = get_cache()
+    ann_id = cache.add_annotation(room, ts, label.strip())
+    return {"id": ann_id, "room": room, "ts": ts, "label": label.strip()}
+
+
+@app.delete("/api/annotations/{ann_id}")
+def delete_annotation(ann_id: int) -> dict:
+    cache = get_cache()
+    if not cache.delete_annotation(ann_id):
+        raise HTTPException(404, f"annotation {ann_id} not found")
+    return {"status": "ok", "deleted": ann_id}
+
+
 @app.get("/api/energy")
 def energy(
     room: str = Query(...),

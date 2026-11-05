@@ -21,6 +21,13 @@ class Cache:
                 PRIMARY KEY (room, metric, ts)
             );
             CREATE INDEX IF NOT EXISTS idx_readings_ts ON readings(ts);
+            CREATE TABLE IF NOT EXISTS annotations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room TEXT NOT NULL,
+                ts TEXT NOT NULL,
+                label TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_annotations_room_ts ON annotations(room, ts);
             """
         )
         self.conn.commit()
@@ -46,6 +53,28 @@ class Cache:
 
     def count(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM readings").fetchone()[0]
+
+    # ----- annotations (user markers on the timeline) -----
+
+    def add_annotation(self, room: str, ts: str, label: str) -> int:
+        cur = self.conn.execute(
+            "INSERT INTO annotations(room, ts, label) VALUES (?, ?, ?)", (room, ts, label)
+        )
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def annotations_since(self, room: str, since_iso: str) -> list[tuple[int, str, str]]:
+        """[(id, ts, label)] ordered by timestamp."""
+        cur = self.conn.execute(
+            "SELECT id, ts, label FROM annotations WHERE room=? AND ts>=? ORDER BY ts",
+            (room, since_iso),
+        )
+        return cur.fetchall()
+
+    def delete_annotation(self, ann_id: int) -> bool:
+        cur = self.conn.execute("DELETE FROM annotations WHERE id=?", (ann_id,))
+        self.conn.commit()
+        return cur.rowcount > 0
 
 
 def hourly_mean(points: list[tuple[str, float]]) -> list[tuple[str, float]]:
