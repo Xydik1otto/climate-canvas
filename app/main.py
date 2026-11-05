@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import cache as cache_mod
-from . import climate, config, demo_data, discover, ha_client, openmeteo, report_pdf, sync
+from . import climate, config, demo_data, discover, floors, ha_client, openmeteo, report_pdf, sync
 
 _cache: cache_mod.Cache | None = None
 _pull_thread: threading.Thread | None = None
@@ -176,6 +176,7 @@ def rooms() -> dict:
         else:
             out["dew_point"] = None
             out["mold_risk"] = None
+        out["floor"] = cfg.get("floor") if isinstance(cfg, dict) else None
         return out
 
     if config.DEMO:
@@ -195,6 +196,14 @@ def rooms() -> dict:
             v = (states.get(cfg.get("voc_entity") or "") or {}).get("voc")
             out[room] = enrich(room, t, h, {"temperature": t, "humidity": h, "co2": c, "voc": v})
     return {"rooms": out, "demo": config.DEMO}
+
+
+@app.get("/api/floors")
+def floors_view() -> dict:
+    """Кімнати, згруповані за поверхами (+ середні поточні значення поверху)."""
+    rooms_cfg = config.load_rooms()
+    current = floors.current_room_values()
+    return {"floors": floors.floor_summary(rooms_cfg, current), "demo": config.DEMO}
 
 
 @app.get("/api/timeline")
@@ -540,6 +549,8 @@ def save_rooms_config(payload: dict) -> dict:
         if isinstance(cfg.get("humidity_min"), (int, float)) and isinstance(cfg.get("humidity_max"), (int, float)) \
                 and cfg["humidity_min"] >= cfg["humidity_max"]:
             raise HTTPException(422, f"room {room!r}: humidity_min must be below humidity_max")
+        if "floor" in cfg and not isinstance(cfg["floor"], str):
+            raise HTTPException(422, f"room {room!r}: floor must be a string (e.g. \"1st\")")
     path = config.save_rooms(rooms)
     return {"status": "ok", "rooms": rooms, "path": str(path)}
 
