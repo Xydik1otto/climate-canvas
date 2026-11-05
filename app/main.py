@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import cache as cache_mod
-from . import climate, config, demo_data, discover, floors, ha_client, openmeteo, report_pdf, sync
+from . import climate, config, demo_data, discover, floors, ha_client, openmeteo, report_html, report_pdf, sync
 
 _cache: cache_mod.Cache | None = None
 _pull_thread: threading.Thread | None = None
@@ -375,6 +375,18 @@ def weekly_report_pdf() -> Response:
     )
 
 
+@app.get("/api/report/weekly.html")
+def weekly_report_html() -> Response:
+    """Download the weekly report as a self-contained HTML file (inline styles)."""
+    html_text = report_html.build_html(weekly_report_data())
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return Response(
+        html_text,
+        media_type="text/html; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="climate-canvas-weekly-{stamp}.html"'},
+    )
+
+
 @app.get("/api/smtp")
 def get_smtp() -> dict:
     """Saved SMTP settings for the optional report email (password masked)."""
@@ -422,13 +434,17 @@ def save_smtp(payload: dict) -> dict:
 def email_weekly_report(payload: dict) -> dict:
     """Email the weekly PDF report (SMTP required: posted or saved in settings).
 
-    Body: {"to": str, plus optional smtp_host/smtp_port/smtp_user/smtp_password/
-    smtp_from/smtp_tls to override the saved settings}.
+    Body: {"to": str, "format": "pdf"|"html" (optional, default pdf), plus
+    optional smtp_host/smtp_port/smtp_user/smtp_password/smtp_from/smtp_tls
+    to override the saved settings}.
     """
     data = payload or {}
     to = data.get("to")
     if not isinstance(to, str) or "@" not in to:
         raise HTTPException(422, 'body must be {"to": "you@example.com", "smtp_*": optional overrides}')
+    fmt = data.get("format", "pdf")
+    if fmt not in ("pdf", "html"):
+        raise HTTPException(422, 'format must be "pdf" or "html"')
     saved = config.load_settings()
     cfg = {
         "host": data.get("smtp_host") or saved.get("smtp_host"),
@@ -440,12 +456,19 @@ def email_weekly_report(payload: dict) -> dict:
     }
     if not cfg["host"]:
         raise HTTPException(400, "SMTP is not configured: fill the SMTP settings or add smtp_host to the request")
-    pdf_bytes = report_pdf.build_pdf(weekly_report_data())
-    try:
-        msg_id = report_pdf.send_email(cfg, to, pdf_bytes)
-    except Exception as exc:  # noqa: BLE001 — surface SMTP errors to the UI
-        raise HTTPException(502, f"SMTP error: {exc}")
-    return {"status": "ok", "to": to, "message_id": msg_id}
+    if fmt == "pdf":
+        body = report_pdf.build_pdf(weekly_report_data())
+        try:
+            msg_id = report_pdf.send_email(cfg, to, body)
+        except Exception as exc:  # noqa: BLE001 — surface SMTP errors to the UI
+            raise HTTPException(502, f"SMTP error: {exc}")
+    else:
+        body = report_html.build_html(weekly_report_data())
+        try:
+            msg_id = report_pdf.send_html_email(cfg, to, body)
+        except Exception as exc:  # noqa: BLE001 — surface SMTP errors to the UI
+            raise HTTPException(502, f"SMTP error: {exc}")
+    return {"status": "ok", "to": to, "format": fmt, "message_id": msg_id}
 
 
 @app.get("/api/annotations")

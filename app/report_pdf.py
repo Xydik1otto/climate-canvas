@@ -93,6 +93,30 @@ def build_email_message(pdf_bytes: bytes, to: str, sender: str = "climate-canvas
     return msg
 
 
+def build_html_email_message(html_body: str, to: str, sender: str = "climate-canvas@localhost",
+                             subject: str = "climate-canvas — тижневий звіт") -> EmailMessage:
+    """Compose a multipart/alternative email with the report rendered as HTML."""
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = to
+    msg.set_content("Тижневий звіт climate-canvas у вкладенні (PDF).\nThe weekly climate-canvas report is attached as PDF.")
+    msg.add_alternative(html_body, subtype="html")
+    return msg
+
+
+def send_html_email(cfg: dict, to: str, html_body: str) -> str:
+    """Send the HTML report via SMTP (same cfg keys as send_email)."""
+    msg = build_html_email_message(html_body, to=to, sender=cfg.get("from") or "climate-canvas@localhost")
+    with smtplib.SMTP(cfg["host"], int(cfg.get("port", 587)), timeout=30) as smtp:
+        if cfg.get("tls", True):
+            smtp.starttls()
+        if cfg.get("user"):
+            smtp.login(cfg["user"], cfg.get("password", ""))
+        smtp.send_message(msg)
+    return msg.get("Message-ID", "")
+
+
 def send_email(cfg: dict, to: str, pdf_bytes: bytes) -> str:
     """Send the PDF report via SMTP. cfg keys: host, port, user, password, tls, from.
 
