@@ -27,7 +27,7 @@
     <a href="/report" id="report-link" data-i18n-title="report_link_title" title="Тижневий звіт" aria-label="Тижневий звіт">📊</a>
     <a href="/settings" id="settings-link" data-i18n-title="settings_link_title" title="Налаштування сенсорів" aria-label="Налаштування сенсорів">⚙️</a>
   </nav>
-  <span id="mode-badge"></span>
+  <span id="mode-badge" role="status" aria-live="polite"></span>
   <button id="lang-toggle" title="Мова інтерфейсу" aria-label="Перемкнути мову UA/EN">EN</button>
   <button id="theme-toggle" data-i18n-title="theme_title" title="Світла/темна тема" aria-label="Перемкнути світлу/темну тему">☀️</button>
 </header>
@@ -56,7 +56,7 @@
         <option value="30" data-i18n="days_30">30 днів</option>
         <option value="90" data-i18n="days_90">90 днів</option>
       </select>
-      <label class="hint"><input type="checkbox" id="tl-forecast"> <span data-i18n="forecast_label">Прогноз 48 год</span></label>
+      <label class="hint"><input type="checkbox" id="tl-forecast" aria-label="Прогноз 48 годин"> <span data-i18n="forecast_label">Прогноз 48 год</span></label>
     </div>
     <canvas id="timeline-chart" height="110" role="img" aria-label="Графік температури та вологості в часі"></canvas>
     <div id="tl-hint" class="hint" data-i18n="tl_hint">Клікніть по графіку, щоб додати мітку (відкрито вікно, відпустка…)</div>

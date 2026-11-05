@@ -32,6 +32,11 @@ main { padding:16px 20px; }
 #first-run p { margin:0; }
 #first-run button { background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:6px 12px; cursor:pointer; }
 #first-run[hidden] { display:none; }
+/* Keyboard accessibility: a clearly visible focus ring on all interactive elements */
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+}
+button.danger { border-color: #e06c75; color: #e06c75; }
 #setup-form { max-width:480px; }
 #setup-form label { display:block; margin:10px 0 4px; font-size:.9rem; }
 #setup-form input { display:block; background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:6px 10px; width:100%; }
