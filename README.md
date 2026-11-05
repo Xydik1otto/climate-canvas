@@ -152,13 +152,17 @@ python -m uvicorn app.main:app
 
 ## Швидкий старт
 
+> 📘 Докладна покрокова інструкція для не-програміста (Windows autostart, systemd,
+> оновлення) — в [INSTALL.md](INSTALL.md).
+
 ```bash
 cd climate-canvas
-pip install -r requirements.txt
+pip install -e .          # або: pip install -r requirements.txt
+climate-canvas            # http://127.0.0.1:8321
 
-# демо-режим (без Home Assistant)
+# демо-режим (без Home Assistant) — умовно можна примусити змінною DEMO=1
 python -m uvicorn app.main:app --reload
-# або з реальним HA:
+# або з реальним HA (env працює, але достатньо wizard у /settings):
 export HASS_TOKEN=ваш_довгоживучий_токен
 export HASS_URL=http://homeassistant.local:8123
 python -m uvicorn app.main:app --reload

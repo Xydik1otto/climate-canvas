@@ -1,6 +1,19 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.venv/
+
+# Local data: SQLite cache, user settings (HA URL/token, SMTP password), rooms config
 data/
 *.db
-.venv/
+rooms.json
+
+# Secrets never belong in git — tokens go to env vars or the UI wizard (data/ is ignored)
+.env
+.env.*
+
+# Python packaging
+*.egg-info/
+build/
+dist/
+
