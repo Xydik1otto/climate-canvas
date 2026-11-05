@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>climate-canvas — тижневий звіт</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  table { border-collapse: collapse; margin-top: 16px; font-size: .9rem; }
+  th, td { border: 1px solid var(--border); padding: 6px 12px; text-align: right; }
+  th { background: var(--card); }
+  td:first-child, th:first-child { text-align: left; }
+  .legend span { margin-right: 14px; font-size: .85rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Тижневий звіт</h1>
+  <a href="/" id="settings-link" title="Назад до дашборда">← Дашборд</a>
+</header>
+<main>
+  <div id="report-status" class="hint">Завантаження…</div>
+  <div id="report-chart" class="legend"></div>
+  <div id="report-table"></div>
+</main>
+<script>
+const PALETTE = ["#4ecdc4", "#e5c07b", "#61afef", "#e06c75", "#7bd88f", "#c678dd"];
+
+async function loadReport() {
+  const data = await fetch("/api/report/weekly").then((r) => r.json());
+  const rooms = Object.entries(data.rooms);
+  if (!rooms.length) {
+    document.querySelector("#report-status").textContent = "Немає даних за останні 7 днів.";
+    return;
+  }
+  document.querySelector("#report-status").textContent = `Дані за останні ${data.days} днів · згенеровано ${new Date().toLocaleString("uk-UA")}`;
+
+  // ----- SVG line chart: daily mean temperature per room -----
+  const W = 720, H = 280, PAD_L = 44, PAD_B = 28, PAD_T = 12, PAD_R = 12;
+  const maxDays = Math.max(...rooms.map(([, r]) => r.daily.length));
+  const all = rooms.flatMap(([, r]) => r.daily.map(([, v]) => v));
+  const yMin = Math.floor(Math.min(...all) - 1), yMax = Math.ceil(Math.max(...all) + 1);
+  const x = (i, n) => PAD_L + (n <= 1 ? 0 : i * (W - PAD_L - PAD_R) / (n - 1));
+  const y = (v) => PAD_T + (H - PAD_T - PAD_B) * (1 - (v - yMin) / (yMax - yMin || 1));
+  let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">`;
+  for (let tick = yMin; tick <= yMax; tick += Math.max(1, Math.ceil((yMax - yMin) / 8))) {
+    svg += `<line x1="${PAD_L}" y1="${y(tick)}" x2="${W - PAD_R}" y2="${y(tick)}" stroke="var(--border)" stroke-width="1"/>`;
+    svg += `<text x="${PAD_L - 6}" y="${y(tick) + 4}" font-size="10" fill="var(--muted)" text-anchor="end">${tick}°</text>`;
+  }
+  rooms.forEach(([room, r], ri) => {
+    const color = PALETTE[ri % PALETTE.length];
+    const n = r.daily.length;
+    const pts = r.daily.map(([, v], i) => `${x(i, n)},${y(v)}`).join(" ");
+    svg += `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2"/>`;
+    r.daily.forEach(([d], i) => {
+      if (ri === 0) svg += `<text x="${x(i, n)}" y="${H - 8}" font-size="9" fill="var(--muted)" text-anchor="middle">${d.slice(5)}</text>`;
+    });
+  });
+  svg += "</svg>";
+  const legend = rooms.map(([room], ri) =>
+    `<span style="color:${PALETTE[ri % PALETTE.length]}">■ ${room}</span>`).join("");
+  document.querySelector("#report-chart").innerHTML = svg + `<div class="legend">${legend}</div>`;
+
+  // ----- Stats table -----
+  let table = "<table><tr><th>Кімната</th><th>Середня</th><th>Мін</th><th>Макс</th><th>Вологість (сер.)</th><th>Точок</th></tr>";
+  for (const [room, r] of rooms) {
+    table += `<tr><td>${room}</td><td>${r.avg}°C</td><td>${r.min}°C</td><td>${r.max}°C</td>` +
+      `<td>${r.humidity_avg != null ? r.humidity_avg + "%" : "—"}</td><td>${r.samples}</td></tr>`;
+  }
+  document.querySelector("#report-table").innerHTML = table + "</table>";
+}
+loadReport();
+</script>
+</body>
+</html>

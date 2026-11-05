@@ -226,6 +226,35 @@ def forecast(hours: int = Query(48, ge=6, le=168)) -> dict:
     }
 
 
+@app.get("/api/report/weekly")
+def weekly_report() -> dict:
+    """Auto-generated weekly report: avg/min/max per room + daily series for the SVG chart."""
+    cache = get_cache()
+    since = cache_mod.hours_ago_iso(7 * 24)
+    out: dict[str, dict] = {}
+    for room in config.load_rooms():
+        tpts = cache.since(room, "temperature", since)
+        if not tpts:
+            continue
+        vals = [v for _, v in tpts]
+        daily: dict[str, list[float]] = {}
+        for ts, v in tpts:
+            daily.setdefault(ts[:10], []).append(v)
+        entry = {
+            "avg": round(sum(vals) / len(vals), 2),
+            "min": round(min(vals), 2),
+            "max": round(max(vals), 2),
+            "samples": len(vals),
+            "daily": [[d, round(sum(v) / len(v), 2)] for d, v in sorted(daily.items())],
+        }
+        hpts = cache.since(room, "humidity", since)
+        if hpts:
+            hvals = [v for _, v in hpts]
+            entry["humidity_avg"] = round(sum(hvals) / len(hvals), 2)
+        out[room] = entry
+    return {"days": 7, "rooms": out}
+
+
 @app.get("/api/annotations")
 def list_annotations(
     room: str = Query(...),
@@ -357,6 +386,11 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/report")
+def report_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "report.html")
 
 
 @app.get("/settings")
