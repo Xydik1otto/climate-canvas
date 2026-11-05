@@ -153,6 +153,22 @@ Seasons / Energy tabs; sensor settings live at http://127.0.0.1:8321/settings.
 SQLite (`data/cache.db`) keeps the long history; the backend pulls new data from
 HA once an hour (in demo mode the cache is filled by the generator on request).
 
+## Performance
+
+Hot paths are profiled (cProfile, `scripts/profile_hot.py`) and optimized with
+zero change to any API number (a regression test pins the exact expected
+values — `tests/test_regression_perf.py`). Details: [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
+| Benchmark (`scripts/bench.py`, 90 days × 4 rooms, median) | Before | After |
+|---|---|---|
+| Demo generation + cache seeding (`seed_cache`) | 1.11 s | **0.30 s** (~3.7×) |
+| Timeline + heatmap aggregation | 0.053 s | **0.044 s** (~1.2×) |
+| Full `pytest` run (167→174 tests) | 87.6 s | **13.9 s** (~6.3×) |
+
+`/api/timeline` and `/api/heatmap` aggregates are memoized per
+(room, metric, window, data version) — repeat requests within the hour neither
+re-read nor re-aggregate SQLite; any write invalidates the cache.
+
 ## Status (roadmap)
 
 | Feature | Status |

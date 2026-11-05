@@ -15,9 +15,12 @@ import argparse
 import cProfile
 import io
 import pstats
+import sys
 import tempfile
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # repo's own app/, not an editable install
 
 from app import cache as cache_mod
 from app import config, demo_data
