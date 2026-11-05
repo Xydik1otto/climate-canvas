@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import cache as cache_mod
-from . import climate, config, demo_data, discover, floors, ha_client, openmeteo, report_html, report_pdf, sync
+from . import climate, config, demo_data, discover, floors, ha_client, mqtt_ingest, openmeteo, report_html, report_pdf, sync
 
 _cache: cache_mod.Cache | None = None
 _pull_thread: threading.Thread | None = None
@@ -469,6 +469,96 @@ def email_weekly_report(payload: dict) -> dict:
         except Exception as exc:  # noqa: BLE001 — surface SMTP errors to the UI
             raise HTTPException(502, f"SMTP error: {exc}")
     return {"status": "ok", "to": to, "format": fmt, "message_id": msg_id}
+
+
+# ---------- MQTT ingestion (Zigbee2MQTT sensors → local cache) ----------
+
+MQTT_KEYS = ("mqtt_enabled", "mqtt_host", "mqtt_port", "mqtt_topic_prefix", "mqtt_rooms")
+
+
+@app.get("/api/mqtt")
+def get_mqtt() -> dict:
+    """Saved MQTT/Zigbee2MQTT ingestion settings (no broker connection here)."""
+    s = config.load_settings()
+    return {
+        "enabled": bool(s.get("mqtt_enabled", False)),
+        "host": s.get("mqtt_host", ""),
+        "port": s.get("mqtt_port", 1883),
+        "topic_prefix": s.get("mqtt_topic_prefix", mqtt_ingest.DEFAULT_PREFIX),
+        "rooms": s.get("mqtt_rooms", {}),
+        "paho_installed": _paho_available(),
+    }
+
+
+@app.post("/api/mqtt")
+def save_mqtt(payload: dict) -> dict:
+    """Persist MQTT settings. Body: {"mqtt_enabled": bool, "mqtt_host": str,
+    "mqtt_port": int, "mqtt_topic_prefix": str, "mqtt_rooms": {friendly_name: room}}."""
+    data = payload or {}
+    update: dict = {}
+    for key in MQTT_KEYS:
+        if key not in data:
+            continue
+        value = data[key]
+        if key == "mqtt_enabled":
+            update[key] = bool(value)
+        elif key == "mqtt_port":
+            try:
+                port = int(value)
+            except (TypeError, ValueError):
+                raise HTTPException(422, "mqtt_port must be an integer")
+            if not 1 <= port <= 65535:
+                raise HTTPException(422, "mqtt_port must be in 1..65535")
+            update[key] = port
+        elif key in ("mqtt_host", "mqtt_topic_prefix"):
+            if not isinstance(value, str):
+                raise HTTPException(422, f"{key} must be a string")
+            update[key] = value.strip()
+        elif key == "mqtt_rooms":
+            if not isinstance(value, dict) or not all(
+                isinstance(k, str) and isinstance(v, str) and v.strip() for k, v in value.items()
+            ):
+                raise HTTPException(422, "mqtt_rooms must be {friendly_name: room_name} (non-empty strings)")
+            update[key] = value
+    if not update:
+        raise HTTPException(422, "nothing to save: body has none of " + ", ".join(MQTT_KEYS))
+    config.save_settings(update)
+    return {"status": "ok", "saved": [k for k in update if k != "mqtt_rooms"] or ["mqtt_rooms"]}
+
+
+@app.post("/api/mqtt/ingest")
+def mqtt_ingest_manual(payload: dict) -> dict:
+    """Inject one Zigbee2MQTT message through the real pipeline (no broker).
+
+    Body: {"topic": "zigbee2mqtt/<Friendly Name>", "payload": "<json string or object>"}.
+    Uses the saved mqtt_rooms mapping; returns how many readings were stored.
+    """
+    data = payload or {}
+    topic, body = data.get("topic"), data.get("payload")
+    if not isinstance(topic, str) or not topic.strip():
+        raise HTTPException(422, 'body must be {"topic": str, "payload": json string or object}')
+    if isinstance(body, (dict, list)):
+        body = json.dumps(body, ensure_ascii=False)
+    if not isinstance(body, str):
+        raise HTTPException(422, "payload must be a JSON string or a JSON object")
+    saved = config.load_settings()
+    ingestor = mqtt_ingest.MqttIngestor(
+        get_cache(),
+        saved.get("mqtt_rooms", {}),
+        saved.get("mqtt_topic_prefix", mqtt_ingest.DEFAULT_PREFIX),
+    )
+    added = ingestor.handle(topic.strip(), body)
+    if added == 0:
+        raise HTTPException(422, "nothing ingested: check topic prefix and mqtt_rooms mapping")
+    return {"status": "ok", "added": added}
+
+
+def _paho_available() -> bool:
+    try:
+        import paho.mqtt.client  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
 
 @app.get("/api/annotations")
