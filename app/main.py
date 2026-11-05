@@ -39,7 +39,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="climate-canvas", version="0.1.0-alpha", lifespan=lifespan)
+app = FastAPI(title="climate-canvas", version="0.3.0", lifespan=lifespan)
 
 
 @app.get("/api/health")

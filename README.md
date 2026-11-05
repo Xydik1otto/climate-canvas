@@ -3,7 +3,7 @@
 ![tests](https://github.com/bigpi/climate-canvas/actions/workflows/tests.yml/badge.svg)
 ![license](https://img.shields.io/badge/license-MIT-green)
 ![python](https://img.shields.io/badge/python-3.11%2B-blue)
-![version](https://img.shields.io/badge/version-0.1.0--alpha-orange)
+![version](https://img.shields.io/badge/version-0.3.0-blue)
 
 **Home Climate & Energy Canvas** — довгострокова візуалізація клімату та енергії з Home Assistant.
 
@@ -125,6 +125,15 @@ pytest
 
 SQLite (`data/cache.db`) зберігає довгу історію; бекенд підтягує нові дані
 з HA раз на годину (у demo-режимі кеш заповнюється генератором).
+
+## Статус (roadmap)
+
+| Функція | Стан |
+|---|---|
+| 4 базові вьюхи, demo + HA, кеш, тести (MVP) | ✅ |
+| Lifespan, CSV export, авто-виявлення сенсорів, вологість-мапа (v0.1.0-alpha) | ✅ |
+| Енергія kWh + вартість, мітки на таймлайні, CO₂/VOC, тема (v0.3.0) | ✅ |
+| «тиждень vs минулий тиждень», автоматичні звіти тижня | ⏳ |
 
 ## Ліцензія
 
