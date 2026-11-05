@@ -8,12 +8,12 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import cache as cache_mod
-from . import climate, config, demo_data, discover, ha_client, openmeteo, sync
+from . import climate, config, demo_data, discover, ha_client, openmeteo, report_pdf, sync
 
 _cache: cache_mod.Cache | None = None
 _pull_thread: threading.Thread | None = None
@@ -294,6 +294,11 @@ def forecast(hours: int = Query(48, ge=6, le=168)) -> dict:
 @app.get("/api/report/weekly")
 def weekly_report() -> dict:
     """Auto-generated weekly report: avg/min/max per room + daily series for the SVG chart."""
+    return weekly_report_data()
+
+
+def weekly_report_data() -> dict:
+    """Aggregate the last 7 days per room (shared by /weekly and the PDF export)."""
     cache = get_cache()
     since = cache_mod.hours_ago_iso(7 * 24)
     out: dict[str, dict] = {}
@@ -318,6 +323,91 @@ def weekly_report() -> dict:
             entry["humidity_avg"] = round(sum(hvals) / len(hvals), 2)
         out[room] = entry
     return {"days": 7, "rooms": out}
+
+
+@app.get("/api/report/weekly.pdf")
+def weekly_report_pdf() -> Response:
+    """Download the weekly report as a PDF (reportlab, generated on the fly)."""
+    pdf_bytes = report_pdf.build_pdf(weekly_report_data())
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return Response(
+        pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="climate-canvas-weekly-{stamp}.pdf"'},
+    )
+
+
+@app.get("/api/smtp")
+def get_smtp() -> dict:
+    """Saved SMTP settings for the optional report email (password masked)."""
+    s = config.load_settings()
+    password = s.get("smtp_password", "")
+    return {
+        "host": s.get("smtp_host", ""),
+        "port": s.get("smtp_port", 587),
+        "user": s.get("smtp_user", ""),
+        "from": s.get("smtp_from", ""),
+        "tls": s.get("smtp_tls", True),
+        "password_set": bool(password),
+        "password_hint": f"••••{password[-3:]}" if password else "",
+    }
+
+
+SMTP_KEYS = ("smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_from", "smtp_tls")
+
+
+@app.post("/api/smtp")
+def save_smtp(payload: dict) -> dict:
+    """Persist SMTP settings (optional email delivery of the weekly report)."""
+    data = payload or {}
+    update: dict = {}
+    for key in SMTP_KEYS:
+        if key in data:
+            if key == "smtp_port":
+                try:
+                    update[key] = int(data[key])
+                except (TypeError, ValueError):
+                    raise HTTPException(422, "smtp_port must be an integer")
+            elif key == "smtp_tls":
+                update[key] = bool(data[key])
+            else:
+                if not isinstance(data[key], str):
+                    raise HTTPException(422, f"{key} must be a string")
+                update[key] = data[key]
+    if not update:
+        raise HTTPException(422, "nothing to save: body has none of " + ", ".join(SMTP_KEYS))
+    config.save_settings(update)
+    return {"status": "ok", "saved": [k for k in update if not k.endswith("password")]}
+
+
+@app.post("/api/report/email")
+def email_weekly_report(payload: dict) -> dict:
+    """Email the weekly PDF report (SMTP required: posted or saved in settings).
+
+    Body: {"to": str, plus optional smtp_host/smtp_port/smtp_user/smtp_password/
+    smtp_from/smtp_tls to override the saved settings}.
+    """
+    data = payload or {}
+    to = data.get("to")
+    if not isinstance(to, str) or "@" not in to:
+        raise HTTPException(422, 'body must be {"to": "you@example.com", "smtp_*": optional overrides}')
+    saved = config.load_settings()
+    cfg = {
+        "host": data.get("smtp_host") or saved.get("smtp_host"),
+        "port": data.get("smtp_port") or saved.get("smtp_port", 587),
+        "user": data.get("smtp_user", saved.get("smtp_user", "")),
+        "password": data.get("smtp_password", saved.get("smtp_password", "")),
+        "from": data.get("smtp_from") or saved.get("smtp_from") or "climate-canvas@localhost",
+        "tls": data.get("smtp_tls", saved.get("smtp_tls", True)),
+    }
+    if not cfg["host"]:
+        raise HTTPException(400, "SMTP is not configured: fill the SMTP settings or add smtp_host to the request")
+    pdf_bytes = report_pdf.build_pdf(weekly_report_data())
+    try:
+        msg_id = report_pdf.send_email(cfg, to, pdf_bytes)
+    except Exception as exc:  # noqa: BLE001 — surface SMTP errors to the UI
+        raise HTTPException(502, f"SMTP error: {exc}")
+    return {"status": "ok", "to": to, "message_id": msg_id}
 
 
 @app.get("/api/annotations")

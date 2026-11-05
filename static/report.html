@@ -14,6 +14,14 @@
   th { background: var(--card); }
   td:first-child, th:first-child { text-align: left; }
   .legend span { margin-right: 14px; font-size: .85rem; }
+  .actions { display:flex; gap:8px; margin:10px 0; flex-wrap:wrap; align-items:center; }
+  .btn { display:inline-block; background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:6px 12px; text-decoration:none; cursor:pointer; }
+  #email-form { max-width:420px; }
+  #email-form label { display:block; margin:8px 0 4px; font-size:.9rem; }
+  #email-form label.chk { display:flex; gap:6px; align-items:center; margin-top:10px; }
+  #email-form input { display:block; background:var(--card); color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:6px 10px; width:100%; }
+  #email-form label.chk input { width:auto; }
+  .ok { color:#7bd88f; } .err { color:#e06c75; }
 </style>
 </head>
 <body>
@@ -25,6 +33,35 @@
   <div id="report-status" class="hint">Завантаження…</div>
   <div id="report-chart" class="legend"></div>
   <div id="report-table"></div>
+
+  <h2>Експорт</h2>
+  <div class="actions">
+    <a id="pdf-btn" class="btn" href="/api/report/weekly.pdf" download
+       aria-label="Завантажити тижневий звіт у PDF">⬇️ Завантажити PDF</a>
+  </div>
+
+  <h2>Надіслати на email (опційно)</h2>
+  <p class="hint">SMTP-налаштування зберігаються локально у <code>data/settings.json</code>.</p>
+  <form id="email-form">
+    <label for="em-to">Кому</label>
+    <input id="em-to" type="email" placeholder="you@example.com">
+    <label for="em-host">SMTP-сервер</label>
+    <input id="em-host" type="text" placeholder="smtp.example.com">
+    <label for="em-port">Порт</label>
+    <input id="em-port" type="number" value="587">
+    <label for="em-user">Користувач</label>
+    <input id="em-user" type="text" autocomplete="off">
+    <label for="em-pass">Пароль</label>
+    <input id="em-pass" type="password" autocomplete="new-password">
+    <label for="em-from">Від (From)</label>
+    <input id="em-from" type="email" placeholder="climate-canvas@example.com">
+    <label class="chk"><input id="em-tls" type="checkbox" checked> TLS (STARTTLS)</label>
+    <div class="actions">
+      <button type="button" id="em-save">💾 Зберегти SMTP</button>
+      <button type="submit" id="em-send">✉️ Надіслати звіт</button>
+    </div>
+    <p id="email-status" class="hint" role="status" aria-live="polite"></p>
+  </form>
 </main>
 <script>
 const PALETTE = ["#4ecdc4", "#e5c07b", "#61afef", "#e06c75", "#7bd88f", "#c678dd"];
@@ -73,6 +110,57 @@ async function loadReport() {
   document.querySelector("#report-table").innerHTML = table + "</table>";
 }
 loadReport();
+
+// ---------- PDF + email export ----------
+async function loadSmtp() {
+  try {
+    const s = await fetch("/api/smtp").then((r) => r.json());
+    if (s.host) $("#em-host").value = s.host;
+    if (s.port) $("#em-port").value = s.port;
+    if (s.user) $("#em-user").value = s.user;
+    if (s.from) $("#em-from").value = s.from;
+    $("#em-tls").checked = s.tls !== false;
+    if (s.password_set) $("#em-pass").placeholder = `•••••••• (збережено ${s.password_hint})`;
+  } catch { /* optional */ }
+}
+loadSmtp();
+
+$("#em-save").addEventListener("click", async () => {
+  const st = $("#email-status");
+  const body = {
+    smtp_host: $("#em-host").value.trim(),
+    smtp_port: parseInt($("#em-port").value, 10) || 587,
+    smtp_user: $("#em-user").value.trim(),
+    smtp_from: $("#em-from").value.trim(),
+    smtp_tls: $("#em-tls").checked,
+  };
+  if ($("#em-pass").value.trim()) body.smtp_password = $("#em-pass").value.trim();
+  const r = await fetch("/api/smtp", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  st.textContent = r.ok ? "✅ SMTP-налаштування збережено." : `❌ ${((await r.json()).detail ?? "помилка")}`;
+  st.className = r.ok ? "ok" : "err";
+});
+
+$("#email-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const st = $("#email-status");
+  st.textContent = "⏳ Формую PDF і надсилаю…";
+  const body = { to: $("#em-to").value.trim() };
+  if ($("#em-host").value.trim()) body.smtp_host = $("#em-host").value.trim();
+  if ($("#em-pass").value.trim()) body.smtp_password = $("#em-pass").value.trim();
+  const r = await fetch("/api/report/email", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await r.json();
+  if (r.ok) {
+    st.textContent = `✅ Звіт надіслано на ${data.to}.`;
+    st.className = "ok";
+  } else {
+    st.textContent = `❌ ${data.detail ?? "помилка"}`;
+    st.className = "err";
+  }
+});
 </script>
 </body>
 </html>
