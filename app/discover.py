@@ -26,6 +26,8 @@ def parse_sensors(states: list[dict[str, Any]]) -> list[dict[str, Any]]:
             metric = "temperature"
         elif unit == "%":
             metric = "humidity"
+        elif unit == "kWh":
+            metric = "energy"
         else:
             continue
         try:
@@ -103,13 +105,12 @@ def _find_current(current_rooms: dict, room_name: str, temp: str | None, hum: st
 def demo_states(rooms: dict[str, dict]) -> list[dict[str, Any]]:
     """Synthesise an /api/states payload for the configured rooms (demo mode)."""
     out: list[dict[str, Any]] = []
+    samples = {"temperature": ("°C", 21.5), "humidity": ("%", 47.0), "energy": ("kWh", 0.5)}
+    key_for = {"temperature": "temp_entity", "humidity": "humidity_entity", "energy": "energy_entity"}
     for room, cfg in rooms.items():
         area = room.lower().replace(" ", "_")
-        for key, metric, unit, value in (
-            ("temp_entity", "temperature", "°C", 21.5),
-            ("humidity_entity", "humidity", "%", 47.0),
-        ):
-            entity = cfg.get(key)
+        for metric, (unit, value) in samples.items():
+            entity = cfg.get(key_for[metric])
             if not entity:
                 continue
             out.append(

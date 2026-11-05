@@ -15,7 +15,7 @@ def pull_once(cache, rooms: dict[str, dict]) -> int:
     """Pull the last 24h of history for all configured entities into the cache."""
     entity_map: dict[str, str] = {}
     for room, cfg in rooms.items():
-        for key in ("temp_entity", "humidity_entity"):
+        for key in ("temp_entity", "humidity_entity", "energy_entity", "co2_entity", "voc_entity"):
             ent = cfg.get(key)
             if ent:
                 entity_map[ent] = room

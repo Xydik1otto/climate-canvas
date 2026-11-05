@@ -17,11 +17,14 @@ HASS_URL = os.environ.get("HASS_URL", "http://supervisor/core/api").rstrip("/")
 COMFORT_MIN = 20.0
 COMFORT_MAX = 24.0
 
+# Electricity price per kWh for the energy view cost estimate (currency-agnostic).
+ENERGY_PRICE = float(os.environ.get("ENERGY_PRICE", "7.5"))
+
 DEFAULT_ROOMS = {
-    "Living Room": {"temp_entity": "sensor.living_room_temp", "humidity_entity": "sensor.living_room_hum"},
-    "Bedroom": {"temp_entity": "sensor.bedroom_temp", "humidity_entity": "sensor.bedroom_hum"},
-    "Kitchen": {"temp_entity": "sensor.kitchen_temp", "humidity_entity": "sensor.kitchen_hum"},
-    "Office": {"temp_entity": "sensor.office_temp", "humidity_entity": "sensor.office_hum"},
+    "Living Room": {"temp_entity": "sensor.living_room_temp", "humidity_entity": "sensor.living_room_hum", "energy_entity": "sensor.living_room_energy"},
+    "Bedroom": {"temp_entity": "sensor.bedroom_temp", "humidity_entity": "sensor.bedroom_hum", "energy_entity": "sensor.bedroom_energy"},
+    "Kitchen": {"temp_entity": "sensor.kitchen_temp", "humidity_entity": "sensor.kitchen_hum", "energy_entity": "sensor.kitchen_energy"},
+    "Office": {"temp_entity": "sensor.office_temp", "humidity_entity": "sensor.office_hum", "energy_entity": "sensor.office_energy"},
 }
 
 

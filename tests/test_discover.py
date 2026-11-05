@@ -57,8 +57,10 @@ def test_discover_endpoint_demo_mode(client):
     assert r.status_code == 200
     data = r.json()
     assert data["demo"] is True
-    assert len(data["sensors"]) == 2 * len(config.DEFAULT_ROOMS)
+    # temp + humidity + energy sensor per demo room
+    assert len(data["sensors"]) == 3 * len(config.DEFAULT_ROOMS)
     assert data["suggested_rooms"]["Living Room"]["temp_entity"] == "sensor.living_room_temp"
+    assert data["suggested_rooms"]["Living Room"]["energy_entity"] == "sensor.living_room_energy"
     assert data["current_rooms"] == config.DEFAULT_ROOMS
 
 

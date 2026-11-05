@@ -37,7 +37,19 @@ def hour_value(room: str, ts: datetime, metric: str) -> float:
         return round(21.0 + temp_off + season + diurnal + noise, 2)
     hum_diurnal = -6.0 * math.sin(2 * math.pi * (ts.hour - 9) / 24.0)
     hum_noise = random.Random(f"{room}|{ts.date().isoformat()}|h").uniform(-2.0, 2.0)
-    return round(45.0 + hum_off + hum_diurnal + hum_noise, 2)
+    if metric == "humidity":
+        return round(45.0 + hum_off + hum_diurnal + hum_noise, 2)
+    if metric == "energy":
+        # Hourly consumption: evening cooking peak, morning bump, winter heating.
+        base = 0.35
+        if 18 <= ts.hour < 22:
+            base += 0.9
+        elif 7 <= ts.hour < 9:
+            base += 0.3
+        heating = 0.35 * max(0.0, -season) / 4.0  # more kWh in cold months
+        e_noise = random.Random(f"{room}|{ts.date().isoformat()}|e").uniform(-0.12, 0.12)
+        return round(max(0.05, base + heating + e_noise), 3)
+    raise ValueError(f"unknown metric: {metric}")
 
 
 def generate_hours(room: str, hours: int = HOURLY_DAYS * 24, end: datetime | None = None) -> list[dict]:
@@ -47,8 +59,8 @@ def generate_hours(room: str, hours: int = HOURLY_DAYS * 24, end: datetime | Non
     for i in range(hours, 0, -1):
         ts = end - timedelta(hours=i)
         ts_iso = ts.strftime("%Y-%m-%dT%H:00:00+00:00")
-        out.append({"entity_id": room, "ts": ts_iso, "metric": "temperature", "value": hour_value(room, ts, "temperature")})
-        out.append({"entity_id": room, "ts": ts_iso, "metric": "humidity", "value": hour_value(room, ts, "humidity")})
+        for metric in ("temperature", "humidity", "energy"):
+            out.append({"entity_id": room, "ts": ts_iso, "metric": metric, "value": hour_value(room, ts, metric)})
     return out
 
 

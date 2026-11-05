@@ -39,6 +39,15 @@ Home Assistant чудово збирає дані, але погано їх по
 - **Теплова мапа вологості** — перемикач метрики у вкладці Heatmap, окрема шкала кольорів.
 - **FastAPI lifespan** замість застарілого `on_event` — чистий лог без DeprecationWarning.
 
+### Енергія (v0.2)
+
+- **View «Енергія»** — kWh-сенсори (`unit_of_measurement: kWh`) в окремій вкладці:
+  стовпчикова діаграма kWh/день, сумарне споживання і **вартість**.
+- Ціна kWh налаштовується: поле вводу в UI (зберігається в localStorage) або
+  змінна середовища `ENERGY_PRICE` (за замовчуванням 7.5). API: `GET /api/energy?room=&days=&price=`.
+- У `rooms.json` додайте ключ `"energy_entity": "sensor.xxx_energy"` для кімнат
+  з лічильником (Shelly/ESPHome/Deye тощо).
+
 ## Джерела даних
 
 - **Home Assistant REST API**: `/api/states` та `/api/history/period`.

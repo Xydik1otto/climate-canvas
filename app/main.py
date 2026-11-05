@@ -47,12 +47,24 @@ def health() -> dict:
     return {"status": "ok", "demo": config.DEMO}
 
 
+METRIC_KEYS = {
+    "temperature": "temp_entity",
+    "humidity": "humidity_entity",
+    "energy": "energy_entity",
+    "co2": "co2_entity",
+    "voc": "voc_entity",
+}
+
+
 def _room_metric(room: str, metric: str) -> str:
     rooms = config.load_rooms()
     cfg = rooms.get(room)
     if cfg is None:
         raise HTTPException(404, f"unknown room: {room}")
-    return cfg["temp_entity"] if metric == "temperature" else cfg["humidity_entity"]
+    entity = cfg.get(METRIC_KEYS.get(metric, ""))
+    if not entity:
+        raise HTTPException(404, f"room {room!r} has no {metric} sensor configured")
+    return entity
 
 
 @app.get("/api/rooms")
@@ -118,6 +130,33 @@ def seasons(
     since = "1970-01-01T00:00:00+00:00"
     points = [(ts, v) for ts, v in cache.since(room, metric, since) if int(ts[5:7]) == month]
     return {"room": room, "metric": metric, "month": month, "by_year": cache_mod.seasonal_means(points)}
+
+
+@app.get("/api/energy")
+def energy(
+    room: str = Query(...),
+    days: int = Query(30, ge=1, le=365),
+    price: float | None = Query(None, ge=0),
+) -> dict:
+    """Hourly/daily kWh consumption for a room + cost at the given (or configured) price."""
+    _room_metric(room, "energy")  # validates room + energy sensor presence
+    cache = get_cache()
+    since = cache_mod.hours_ago_iso(days * 24)
+    points = cache.since(room, "energy", since)
+    total = round(sum(v for _, v in points), 3)
+    p = config.ENERGY_PRICE if price is None else price
+    daily: dict[str, float] = {}
+    for ts, v in points:
+        daily[ts[:10]] = daily.get(ts[:10], 0.0) + v
+    return {
+        "room": room,
+        "days": days,
+        "total_kwh": total,
+        "price": p,
+        "cost": round(total * p, 2),
+        "daily": [[d, round(s, 2)] for d, s in sorted(daily.items())],
+        "points": points,
+    }
 
 
 @app.get("/api/discover")

@@ -15,6 +15,7 @@
     <button data-view="timeline">Таймлайн</button>
     <button data-view="heatmap">Теплова мапа</button>
     <button data-view="seasons">Сезони</button>
+    <button data-view="energy">Енергія</button>
     <a href="/settings" id="settings-link" title="Налаштування сенсорів">⚙️</a>
   </nav>
   <span id="mode-badge"></span>
@@ -63,6 +64,20 @@
       <select id="se-month"></select>
     </div>
     <canvas id="seasons-chart" height="110"></canvas>
+  </section>
+
+  <section id="view-energy" class="view">
+    <div class="controls">
+      <select id="en-room"></select>
+      <select id="en-days">
+        <option value="7">7 днів</option>
+        <option value="30" selected>30 днів</option>
+        <option value="90">90 днів</option>
+      </select>
+      <label>Ціна kWh: <input id="en-price" type="number" step="0.01" min="0" style="width:90px"></label>
+    </div>
+    <div id="energy-total"></div>
+    <canvas id="energy-chart" height="110"></canvas>
   </section>
 </main>
 

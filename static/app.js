@@ -27,7 +27,7 @@ async function loadRooms() {
     grid.appendChild(card);
   }
   const names = Object.keys(data.rooms);
-  for (const sel of ["#tl-room", "#hm-room", "#se-room"]) {
+  for (const sel of ["#tl-room", "#hm-room", "#se-room", "#en-room"]) {
     $(sel).innerHTML = names.map((n) => `<option>${n}</option>`).join("");
   }
 }
@@ -144,6 +144,28 @@ async function loadSeasons() {
 const metricName = (m) => (m === "temperature" ? "температура" : "вологість");
 const monthName = (m) => ["січень","лютий","березень","квітень","травень","червень","липень","серпень","вересень","жовтень","листопад","грудень"][m - 1];
 
+// ---------- Energy (kWh + cost) ----------
+let energyChart = null;
+
+async function loadEnergy() {
+  const room = $("#en-room").value, days = $("#en-days").value;
+  const price = parseFloat($("#en-price").value) || 0;
+  const data = await api(`/api/energy?room=${encodeURIComponent(room)}&days=${days}&price=${price}`);
+  $("#energy-total").textContent =
+    `Всього: ${data.total_kwh} kWh · ≈ ${data.cost} (за ${data.price}/kWh) · ${room}, ${days} дн.`;
+  const labels = data.daily.map(([d]) => d.slice(5)); // MM-DD
+  const ctx = $("#energy-chart");
+  if (energyChart) energyChart.destroy();
+  energyChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{ label: `kWh/день · ${room}`, data: data.daily.map(([, v]) => v), backgroundColor: "#e5c07b" }],
+    },
+    options: { plugins: { legend: { labels: { color: "#e6e1cf" } } }, scales: { y: { beginAtZero: true, grid: { color: "#22303c" } }, x: { grid: { display: false }, ticks: { maxTicksLimit: 14 } } } },
+  });
+}
+
 // ---------- Tabs & wiring ----------
 document.querySelectorAll("nav button").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -151,13 +173,19 @@ document.querySelectorAll("nav button").forEach((btn) => {
     document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
     btn.classList.add("active");
     $(`#view-${btn.dataset.view}`).classList.add("active");
-    const loaders = { rooms: loadRooms, timeline: loadTimeline, heatmap: loadHeatmap, seasons: loadSeasons };
+    const loaders = { rooms: loadRooms, timeline: loadTimeline, heatmap: loadHeatmap, seasons: loadSeasons, energy: loadEnergy };
     loaders[btn.dataset.view]();
   });
 });
 ["#tl-room", "#tl-metric", "#tl-days"].forEach((s) => $(s).addEventListener("change", loadTimeline));
 ["#hm-room", "#hm-metric", "#hm-days"].forEach((s) => $(s).addEventListener("change", loadHeatmap));
 ["#se-room", "#se-month"].forEach((s) => $(s).addEventListener("change", loadSeasons));
+["#en-room", "#en-days"].forEach((s) => $(s).addEventListener("change", loadEnergy));
+$("#en-price").addEventListener("change", () => {
+  localStorage.setItem("cc-energy-price", $("#en-price").value);
+  loadEnergy();
+});
+$("#en-price").value = localStorage.getItem("cc-energy-price") ?? "7.5";
 
 $("#se-month").innerHTML = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${monthName(i + 1)}</option>`).join("");
 
