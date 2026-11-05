@@ -85,7 +85,7 @@ def parse_history(payload: list[list[dict[str, Any]]]) -> list[dict[str, Any]]:
 def history_period_url(now: datetime, hours: int = 24, entity_ids: list[str] | None = None) -> str:
     """Build the /api/history/period URL for the last `hours` hours."""
     start = (now - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S")
-    url = f"{config.HASS_URL}/history/period/{start}"
+    url = f"{config.hass_url()}/history/period/{start}"
     if entity_ids:
         from urllib.parse import urlencode
 
@@ -95,24 +95,40 @@ def history_period_url(now: datetime, hours: int = 24, entity_ids: list[str] | N
 
 def fetch_states(timeout: float = 10.0) -> dict[str, dict[str, float | None]]:
     """Fetch current states from HA (returns parsed sensor values)."""
-    headers = {"Authorization": f"Bearer {config.HASS_TOKEN}"}
-    resp = httpx.get(f"{config.HASS_URL}/states", headers=headers, timeout=timeout)
+    headers = {"Authorization": f"Bearer {config.hass_token()}"}
+    resp = httpx.get(f"{config.hass_url()}/states", headers=headers, timeout=timeout)
     resp.raise_for_status()
     return parse_states(resp.json())
 
 
 def fetch_states_raw(timeout: float = 10.0) -> list[dict[str, Any]]:
     """Fetch the full /api/states payload (used by sensor auto-discovery)."""
-    headers = {"Authorization": f"Bearer {config.HASS_TOKEN}"}
-    resp = httpx.get(f"{config.HASS_URL}/states", headers=headers, timeout=timeout)
+    headers = {"Authorization": f"Bearer {config.hass_token()}"}
+    resp = httpx.get(f"{config.hass_url()}/states", headers=headers, timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 
 
 def fetch_history(entity_ids: list[str], hours: int = 24, timeout: float = 30.0) -> list[dict[str, Any]]:
     """Fetch recent history for the given entities from HA."""
-    headers = {"Authorization": f"Bearer {config.HASS_TOKEN}"}
+    headers = {"Authorization": f"Bearer {config.hass_token()}"}
     url = history_period_url(datetime.now(timezone.utc), hours=hours, entity_ids=entity_ids)
     resp = httpx.get(url, headers=headers, timeout=timeout)
     resp.raise_for_status()
     return parse_history(resp.json())
+
+
+def test_connection(url: str, token: str, timeout: float = 6.0) -> dict:
+    """Verify a HA URL + long-lived access token (used by the setup wizard).
+
+    Returns {"ok": True, "status": 200, "sensors": N} on success or
+    {"ok": False, "error": "..."} on any failure — never raises.
+    """
+    try:
+        base = config.normalize_hass_url(url)
+        resp = httpx.get(f"{base}/states", headers={"Authorization": f"Bearer {token}"}, timeout=timeout)
+        resp.raise_for_status()
+        sensors = sum(1 for s in resp.json() if str(s.get("entity_id", "")).startswith("sensor."))
+        return {"ok": True, "status": resp.status_code, "sensors": sensors}
+    except Exception as exc:  # noqa: BLE001 — the wizard must always show a reason
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}

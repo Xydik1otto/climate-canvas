@@ -47,6 +47,63 @@ def health() -> dict:
     return {"status": "ok", "demo": config.DEMO}
 
 
+# ---------- Setup wizard (Home Assistant URL + token, saved in settings.json) ----------
+
+def _token_hint(token: str) -> str:
+    """Masked hint for the UI — never return the real token."""
+    return f"••••{token[-4:]}" if token else ""
+
+
+@app.get("/api/setup")
+def get_setup() -> dict:
+    """Current HA connection config for the wizard (token is never returned)."""
+    token = config.hass_token()
+    return {
+        "url": config.hass_url(),
+        "token_set": bool(token),
+        "token_hint": _token_hint(token),
+        "from_env": bool(config._ENV_HASS_TOKEN or config._ENV_HASS_URL != "http://supervisor/core/api"),
+        "demo": config.DEMO,
+        "restart_required": False,
+    }
+
+
+@app.post("/api/setup")
+def save_setup(payload: dict) -> dict:
+    """Persist HA URL + long-lived access token to data/settings.json.
+
+    Body: {"url": str, "token": str}. The demo<->HA switch itself takes effect
+    after a restart; `restart_required` tells the UI when that is the case.
+    """
+    data = payload or {}
+    url, token = data.get("url"), data.get("token")
+    if not isinstance(url, str) or not url.strip().startswith(("http://", "https://")):
+        raise HTTPException(422, 'body must be {"url": "http://…", "token": str}')
+    if not isinstance(token, str) or not token.strip():
+        raise HTTPException(422, "token must be a non-empty string")
+    was_demo = config.DEMO
+    config.save_settings({"hass_url": config.normalize_hass_url(url), "hass_token": token.strip()})
+    config.reload()
+    return {
+        "status": "ok",
+        "url": config.hass_url(),
+        "token_hint": _token_hint(config.hass_token()),
+        "restart_required": was_demo != config.demo_mode(),
+    }
+
+
+@app.post("/api/setup/test")
+def test_setup(payload: dict) -> dict:
+    """Test a HA connection (uses posted url/token or the saved ones)."""
+    data = payload or {}
+    url = data.get("url") or config.hass_url()
+    token = data.get("token") or config.hass_token()
+    if not isinstance(url, str) or not isinstance(token, str) or not url.strip():
+        raise HTTPException(422, 'body must be {"url": str, "token": str} (or empty to test the saved config)')
+    result = ha_client.test_connection(url.strip(), token)
+    return result
+
+
 METRIC_KEYS = {
     "temperature": "temp_entity",
     "humidity": "humidity_entity",

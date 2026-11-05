@@ -23,6 +23,24 @@
   <span id="mode-badge"></span>
 </header>
 <main>
+  <h2>🏠 Home Assistant — підключення</h2>
+  <p class="hint">Вкажіть адресу інстансу та довготривалий токен доступу
+    (HA → Профіль → Безпека → Long-Lived Access Tokens). Дані зберігаються у
+    <code>data/settings.json</code> — змінні середовища більше не потрібні.</p>
+  <form id="setup-form">
+    <label for="ha-url">URL інстансу</label>
+    <input id="ha-url" type="url" placeholder="http://homeassistant.local:8123" autocomplete="off"
+           aria-describedby="setup-status">
+    <label for="ha-token">Токен доступу</label>
+    <input id="ha-token" type="password" placeholder="••••••••" autocomplete="new-password"
+           aria-describedby="setup-status">
+    <div class="setup-actions">
+      <button type="button" id="ha-test">🔌 Перевірити з'єднання</button>
+      <button type="submit" id="ha-save">💾 Зберегти</button>
+    </div>
+    <p id="setup-status" class="hint" role="status" aria-live="polite"></p>
+  </form>
+
   <h2>Знайдені сенсори</h2>
   <table id="sensors-table">
     <thead><tr><th>Area</th><th>Entity</th><th>Назва</th><th>Метрика</th><th>Значення</th></tr></thead>
@@ -41,6 +59,62 @@
 <script>
 const $ = (s) => document.querySelector(s);
 let suggested = {};
+
+// ---------- Setup wizard: HA URL + token ----------
+async function loadSetup() {
+  try {
+    const s = await fetch("/api/setup").then((r) => r.json());
+    $("#ha-url").value = s.url || "";
+    $("#ha-token").placeholder = s.token_hint ? `•••••••• (збережено ${s.token_hint})` : "••••••••";
+    if (s.from_env) {
+      $("#setup-status").textContent = "Поточні URL/токен задані через змінні середовища — збережіть тут, щоб перевизначити.";
+    }
+  } catch { /* setup endpoint unavailable — ignore */ }
+}
+
+async function haTest() {
+  const st = $("#setup-status");
+  st.textContent = "⏳ Перевіряю з'єднання…";
+  const body = {};
+  if ($("#ha-url").value.trim()) body.url = $("#ha-url").value.trim();
+  if ($("#ha-token").value.trim()) body.token = $("#ha-token").value.trim();
+  const r = await fetch("/api/setup/test", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await r.json();
+  if (data.ok) {
+    st.textContent = `✅ З'єднання встановлено — знайдено сенсорів: ${data.sensors}`;
+    st.className = "ok";
+  } else {
+    st.textContent = `❌ Не вдалося підключитися: ${data.error ?? "невідома помилка"}`;
+    st.className = "err";
+  }
+}
+
+async function haSave(evt) {
+  evt.preventDefault();
+  const st = $("#setup-status");
+  const url = $("#ha-url").value.trim(), token = $("#ha-token").value.trim();
+  if (!url || !token) { st.textContent = "❌ Вкажіть URL і токен."; st.className = "err"; return; }
+  const r = await fetch("/api/setup", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, token }),
+  });
+  const data = await r.json();
+  if (r.ok) {
+    st.textContent = data.restart_required
+      ? "✅ Збережено. Перезапустіть застосунок, щоб перейти з демо на Home Assistant."
+      : `✅ Збережено (${data.token_hint}).`;
+    st.className = "ok";
+    $("#ha-token").value = "";
+    $("#ha-token").placeholder = `•••••••• (збережено ${data.token_hint})`;
+  } else {
+    st.textContent = `❌ ${data.detail ?? "помилка"}`;
+    st.className = "err";
+  }
+}
+$("#ha-test").addEventListener("click", haTest);
+$("#setup-form").addEventListener("submit", haSave);
+loadSetup();
 
 async function load() {
   const data = await fetch("/api/discover").then((r) => r.json());

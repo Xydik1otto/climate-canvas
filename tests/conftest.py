@@ -30,6 +30,7 @@ def client(tmp_path, monkeypatch):
 
     monkeypatch.setattr(config, "DB_PATH", tmp_path / "cache.db")
     monkeypatch.setattr(config, "DEMO", True)
+    monkeypatch.setattr(config, "SETTINGS_FILE", tmp_path / "settings.json")
     main._cache = None
     with TestClient(main.app) as c:
         yield c
