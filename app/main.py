@@ -38,7 +38,27 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="climate-canvas", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="climate-canvas", version="1.0.0", lifespan=lifespan)
+
+
+def cli() -> None:
+    """Console entry point: `climate-canvas [--host H] [--port P] [--demo]`."""
+    import argparse
+
+    import uvicorn
+
+    parser = argparse.ArgumentParser(prog="climate-canvas", description="Home Climate & Energy Canvas")
+    parser.add_argument("--host", default="127.0.0.1", help="bind address (default: 127.0.0.1)")
+    parser.add_argument("--port", type=int, default=8321, help="port (default: 8321)")
+    parser.add_argument("--demo", action="store_true", help="force demo mode (synthetic data)")
+    args = parser.parse_args()
+    if args.demo:
+        import os
+
+        os.environ["DEMO"] = "1"
+        config._ENV_DEMO = True
+        config.DEMO = True
+    uvicorn.run("app.main:app", host=args.host, port=args.port)
 
 
 @app.get("/api/health")
