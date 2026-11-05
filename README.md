@@ -226,6 +226,13 @@ SQLite (`data/cache.db`) зберігає довгу історію; бекен�
 bash scripts/smoke.sh   # піднімає демо-сервер на випадковому порті, перевіряє ендпоінти, PASS/FAIL
 ```
 
+## 📱 Мобільні застосунки
+
+Є мобільна оболонка (Capacitor 6) для Android та iOS: splash з адресою
+**вашого** сервера + демо-режим, APK з CI (sideload), unsigned iOS через
+AltStore. Особливо цінно з Tailscale — моніторинг дому звідусіль.
+Деталі: [MOBILE.md](MOBILE.md).
+
 ## Contributing
 
 PR та issue — вітаються! Прочитайте [CONTRIBUTING.md](CONTRIBUTING.md);

@@ -186,6 +186,13 @@ re-read nor re-aggregate SQLite; any write invalidates the cache.
 bash scripts/smoke.sh   # starts a demo server on a random port, checks endpoints, PASS/FAIL
 ```
 
+## 📱 Mobile apps
+
+A mobile shell (Capacitor 6) for Android and iOS exists: a splash with **your**
+server address + demo mode, CI-built APK (sideload), unsigned iOS via AltStore.
+Especially valuable with Tailscale — home monitoring from anywhere.
+Details: [MOBILE.md](MOBILE.md).
+
 ## Contributing
 
 PRs and issues are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md);
