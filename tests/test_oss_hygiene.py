@@ -53,6 +53,8 @@ def test_no_private_paths_in_tracked_files():
     for f in tracked_files():
         if f.suffix.lower() in IGNORE_EXT or not f.is_file():
             continue
+        if f.name == "test_oss_hygiene.py":  # this file contains the scan literals
+            continue
         try:
             text = f.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
