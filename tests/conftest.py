@@ -1,10 +1,16 @@
 """Shared pytest fixtures: recorded HA API responses + temp dirs."""
 import json
+import os
 from pathlib import Path
 
 import pytest
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+# Demo volume for the `client` fixture. Every API test uses <= 30 days of
+# history, so 32 days keeps full coverage while cutting fixture setup ~3x.
+# Override with CLIMATE_CANVAS_TEST_DAYS (e.g. 90 to reproduce full volume).
+TEST_DEMO_DAYS = int(os.environ.get("CLIMATE_CANVAS_TEST_DAYS", "32"))
 
 
 def load_fixture(name: str):
@@ -33,6 +39,6 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "SETTINGS_FILE", tmp_path / "settings.json")
     main._cache = None
     with TestClient(main.app) as c:
-        demo_data.seed_cache(main.get_cache())
+        demo_data.seed_cache(main.get_cache(), days=TEST_DEMO_DAYS)
         yield c
     main._cache = None
